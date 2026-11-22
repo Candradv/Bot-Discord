@@ -131,7 +131,7 @@ function buildStaffEmbed(appeal, voteCounts = null) {
 
   if (appeal.roblox_experience) {
     fields.push({
-      name: '🕹️ Roblox / The Forge Playtime',
+      name: '🕹️ The Forge Play Schedule',
       value: appeal.roblox_experience.slice(0, 1024),
       inline: false,
     });
@@ -393,11 +393,11 @@ function createSimplifiedAppealModal() {
 
   const robloxExperienceInput = new TextInputBuilder()
     .setCustomId('appeal_input_roblox_experience')
-    .setLabel('How long have you played Roblox/The Forge?')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Example: 2 years on Roblox, 3 months in The Forge')
+    .setLabel('How often and how long do you play The Forge?')
+    .setStyle(TextInputStyle.Paragraph)
+    .setPlaceholder('Example: 12 hours daily, 2 days per week, or every other day')
     .setMinLength(2)
-    .setMaxLength(100)
+    .setMaxLength(200)
     .setRequired(true);
 
   modal.addComponents(
@@ -524,7 +524,7 @@ async function handleAppealModal(interaction) {
     const gearScoreInput = interaction.fields.getTextInputValue('appeal_input_gear_score').trim();
     const alasan = (interaction.fields.getTextInputValue('appeal_input_alasan') || '').trim().slice(0, 500);
     const infoTambahan = (interaction.fields.getTextInputValue('appeal_input_info_tambahan') || '').trim().slice(0, 300) || '-';
-    const robloxExperience = interaction.fields.getTextInputValue('appeal_input_roblox_experience').trim().slice(0, 100);
+    const robloxExperience = interaction.fields.getTextInputValue('appeal_input_roblox_experience').trim().slice(0, 200);
 
     if (!/^\d{1,9}$/.test(gearScoreInput) || !Number.isSafeInteger(Number(gearScoreInput))) {
       return interaction.editReply({
@@ -662,7 +662,7 @@ async function handleAppealModal(interaction) {
         { name: '👤 Applicant', value: `<@${appeal.user_id}> (${appeal.user_tag})`, inline: true },
         { name: '🎮 Roblox Username', value: robloxUsername, inline: true },
         { name: '⚔️ Gear Score', value: `${gearScore.toLocaleString('en-US')} GS`, inline: true },
-        { name: '🕹️ Roblox / The Forge Playtime', value: robloxExperience, inline: true },
+        { name: '🕹️ The Forge Play Schedule', value: robloxExperience, inline: true },
         { name: '📝 Reason for Joining', value: alasan.slice(0, 500), inline: false },
       ],
     });
@@ -674,7 +674,7 @@ async function handleAppealModal(interaction) {
         `• **Appeal ID:** ${appeal.appeal_code}\n` +
         `• **Roblox Username:** ${robloxUsername}\n` +
         `• **Gear Score:** ${gearScore.toLocaleString('en-US')} GS\n\n` +
-        `• **Roblox / The Forge Playtime:** ${robloxExperience}\n\n` +
+        `• **The Forge Play Schedule:** ${robloxExperience}\n\n` +
         'Your appeal has been sent to the community review and voting channel.\n\n' +
         '⛔ **Important:** Staff will manually verify your actual Gear Score. If it does not match the value in your application and your appeal is denied for this mismatch, you will be permanently blocked from submitting future appeals.\n\n' +
         '📌 You cannot submit another appeal while this one is under review.'
