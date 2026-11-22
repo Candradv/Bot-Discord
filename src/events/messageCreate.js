@@ -2,6 +2,7 @@ const { Events } = require('discord.js');
 const { EmbedBuilder } = require('discord.js');
 const db = require('../database/db');
 const logger = require('../utils/logger');
+const { config } = require('../config');
 const {
   buildStaffEmbed,
   buildAppealActionRows,
@@ -27,16 +28,21 @@ module.exports = {
       }
 
       const updatedAppeal = db.updateAppealScreenshot(appeal.id, imageAttachment.url);
-      if (!updatedAppeal.channel_id || !updatedAppeal.message_id) return;
 
       try {
-        const channel = await client.channels.fetch(updatedAppeal.channel_id);
-        const staffMessage = await channel.messages.fetch(updatedAppeal.message_id);
+        const staffChannelId =
+          config.guildAppealChannelId ||
+          config.staffChannelId ||
+          updatedAppeal.channel_id;
+        const channel = await client.channels.fetch(staffChannelId);
         const voteCounts = db.getVoteCounts(updatedAppeal.id);
-        await staffMessage.edit({
-          embeds: [buildStaffEmbed(updatedAppeal, voteCounts)],
-          components: buildAppealActionRows(updatedAppeal.id, voteCounts, false),
-        });
+        if (updatedAppeal.channel_id && updatedAppeal.message_id) {
+          const staffMessage = await channel.messages.fetch(updatedAppeal.message_id);
+          await staffMessage.edit({
+            embeds: [buildStaffEmbed(updatedAppeal, voteCounts)],
+            components: buildAppealActionRows(updatedAppeal.id, voteCounts, false),
+          });
+        }
 
         const proofEmbed = new EmbedBuilder()
           .setTitle(`📸 Gear Score Proof — ${updatedAppeal.appeal_code}`)
@@ -50,8 +56,14 @@ module.exports = {
           .setTimestamp();
 
         await channel.send({
-          content: `⚔️ Gear Score screenshot received for <@${updatedAppeal.user_id}>.`,
+          content:
+            `⚔️ Gear Score screenshot received for <@${updatedAppeal.user_id}>.\n` +
+            `Appeal: **${updatedAppeal.appeal_code}**`,
           embeds: [proofEmbed],
+          files: [{
+            attachment: imageAttachment.url,
+            name: `gear-score-${updatedAppeal.appeal_code.replace(/[^a-z0-9]/gi, '-')}.png`,
+          }],
         });
 
         await message.reply(
