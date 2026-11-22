@@ -76,7 +76,7 @@ async function testChannelSeparation() {
   console.log('3. Menguji Submission Pemain Terkirim ke STAFF_CHANNEL_ID (Bukan APPEAL_CHANNEL_ID):');
   let submissionSentToChannel = null;
   let submissionEmbedTitle = null;
-  let submissionHasReviewButtons = false;
+  let submissionHasManageButton = false;
 
   const mockStaffChannel = {
     id: config.staffChannelId,
@@ -87,10 +87,10 @@ async function testChannelSeparation() {
       submissionSentToChannel = config.staffChannelId;
       submissionEmbedTitle = payload.embeds[0].data.title;
       const buttons = payload.components.flatMap((row) => row.components.map((c) => c.data.custom_id));
-      submissionHasReviewButtons = buttons.some((b) => b.includes('approve')) && buttons.some((b) => b.includes('reject'));
+      submissionHasManageButton = buttons.some((b) => b.includes('manage'));
       console.log('   Submission terkirim ke channel ID:', submissionSentToChannel);
       console.log('   Judul Embed Submission:', submissionEmbedTitle);
-      console.log('   Tombol Review Staff:', buttons);
+      console.log('   Tombol Manage Staff:', buttons);
       return { id: 'msg-staff-1' };
     },
   };
@@ -110,17 +110,17 @@ async function testChannelSeparation() {
     fields: {
       getTextInputValue: (id) => {
         const val = {
-          appeal_input_ign: 'TestWarrior (Lv. 99)',
-          appeal_input_age_tz: '23, WIB',
-          appeal_input_reason: 'Testing channel separation flow',
-          appeal_input_experience: 'Pro gamer',
+          appeal_input_roblox_username: 'TestWarrior',
+          appeal_input_gear_score: '6500',
+          appeal_input_alasan: 'Testing the channel separation flow',
+          appeal_input_info_tambahan: 'Level 99, active player',
         };
         return val[id];
       },
     },
     deferReply: async () => {},
     editReply: async (res) => {
-      console.log('   Konfirmasi Balasan ke Pemain:', res.embeds[0].data.title);
+      console.log('   Applicant confirmation:', res.embeds[0].data.title);
     },
   };
 
@@ -132,10 +132,10 @@ async function testChannelSeparation() {
   if (submissionSentToChannel === config.appealChannelId) {
     throw new Error('FATAL: Submission terkirim ke APPEAL_CHANNEL_ID!');
   }
-  if (!submissionHasReviewButtons) {
-    throw new Error('Submission di STAFF_CHANNEL_ID wajib memiliki tombol Approve & Reject!');
+  if (!submissionHasManageButton) {
+    throw new Error('Submission in STAFF_CHANNEL_ID must have the Manage button!');
   }
-  console.log('   -> Submission terkirim ke STAFF_CHANNEL_ID lengkap dengan tombol review (OK)\n');
+  console.log('   -> Submission sent to STAFF_CHANNEL_ID with Manage button (OK)\n');
 
   // Bersihkan data uji di database
   db.db.exec("DELETE FROM appeals WHERE user_id = 'player-test-channel';");

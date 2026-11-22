@@ -13,6 +13,7 @@ const { config } = require('../config');
 const db = require('../database/db');
 const logger = require('./logger');
 const { sendAppealLog } = require('./appealLogger');
+const MINIMUM_GEAR_SCORE = 6000;
 
 /**
  * Validasi apakah seorang member memiliki izin Staff/Owner
@@ -55,7 +56,7 @@ function computeMemberRating(member) {
 
   score = Math.min(score, 5);
   const stars = '⭐'.repeat(score) + '☆'.repeat(5 - score);
-  return `${stars} (${score}/5) · Akun: ${accountAgeDays}h · Server: ${serverAgeDays}h`;
+  return `${stars} (${score}/5) · Account: ${accountAgeDays}d · Server: ${serverAgeDays}d`;
 }
 
 /**
@@ -67,18 +68,7 @@ function buildStaffEmbed(appeal, voteCounts = null) {
   const supportPct = total > 0 ? Math.round((votes.support / total) * 100) : 0;
   const againstPct = total > 0 ? Math.round((votes.against / total) * 100) : 0;
   const warningCount = db.getWarningCount(appeal.id);
-  let screenshotUrl = null;
-
-  if (appeal.screenshot_url) {
-    try {
-      const parsedScreenshotUrl = new URL(appeal.screenshot_url);
-      if (parsedScreenshotUrl.protocol === 'https:' || parsedScreenshotUrl.protocol === 'http:') {
-        screenshotUrl = parsedScreenshotUrl.href;
-      }
-    } catch {
-      // An invalid screenshot link must not prevent the appeal from reaching staff.
-    }
-  }
+  const gearScore = Number.isSafeInteger(appeal.gear_score) ? appeal.gear_score : null;
 
   let color = 0xf1c40f; // Gold / Pending
   let statusText = '`🔎 Under Review`';
@@ -95,7 +85,7 @@ function buildStaffEmbed(appeal, voteCounts = null) {
 
   const fields = [
     {
-      name: '👤 Pengaju',
+      name: '👤 Applicant',
       value: `<@${appeal.user_id}> (${appeal.user_tag})\nID: \`${appeal.user_id}\``,
       inline: true,
     },
@@ -105,28 +95,35 @@ function buildStaffEmbed(appeal, voteCounts = null) {
       inline: true,
     },
     {
-      name: '📌 Status Pengajuan',
+      name: '⚔️ Gear Score',
+      value: gearScore === null
+        ? '*Not provided*'
+        : `**${gearScore.toLocaleString('en-US')} GS**${gearScore < MINIMUM_GEAR_SCORE ? '\n⚠️ Below the 6,000 GS minimum' : ''}`,
+      inline: true,
+    },
+    {
+      name: '📌 Application Status',
       value: statusText,
       inline: true,
     },
     {
-      name: '📝 Alasan Bergabung',
+      name: '📝 Reason for Joining',
       value: (appeal.reason || '-').slice(0, 1024),
       inline: false,
     },
   ];
 
-  // Info tambahan jika ada
+  // Additional information, if provided
   const extraInfo = appeal.extra_info && appeal.extra_info !== '-' ? appeal.extra_info : null;
   if (extraInfo) {
     fields.push({
-      name: '📊 Informasi Tambahan (GS / Level / Aktivitas)',
+      name: '📊 Additional Information (Level / Activity)',
       value: extraInfo.slice(0, 1024),
       inline: false,
     });
   }
 
-  // Member Rating
+  // Member rating
   if (appeal.member_rating) {
     fields.push({
       name: '⭐ Member Rating',
@@ -135,17 +132,17 @@ function buildStaffEmbed(appeal, voteCounts = null) {
     });
   }
 
-  // Community Voting dengan countdown jika masih pending
+  // Community voting with a countdown while under review
   let votingValue =
     `👍 **Support:** ${votes.support} (${supportPct}%)   •   👎 **Against:** ${votes.against} (${againstPct}%)\n` +
-    `*Total Partisipasi Komunitas:* ${total} suara`;
+    `*Total community votes:* ${total}`;
 
   if (appeal.status === 'PENDING_REVIEW' && appeal.vote_ends_at) {
     const isVotingOpen = Date.now() < appeal.vote_ends_at;
     const voteEndTs = Math.floor(appeal.vote_ends_at / 1000);
     votingValue += isVotingOpen
-      ? `\n⏳ Voting berakhir <t:${voteEndTs}:R>`
-      : `\n🔒 Voting ditutup <t:${voteEndTs}:R>`;
+      ? `\n⏳ Voting ends <t:${voteEndTs}:R>`
+      : `\n🔒 Voting closed <t:${voteEndTs}:R>`;
   }
 
   fields.push({
@@ -154,44 +151,43 @@ function buildStaffEmbed(appeal, voteCounts = null) {
     inline: false,
   });
 
-  // Tampilkan riwayat warning jika pernah diberikan
+  // Show warning history, if any
   if (warningCount > 0) {
     fields.push({
-      name: '⚠️ Riwayat Warning',
-      value: `Pemohon telah menerima **${warningCount}** peringatan dari staff.`,
+      name: '⚠️ Warning History',
+      value: `The applicant has received **${warningCount}** staff warning(s).`,
       inline: false,
     });
   }
 
-  // Tampilkan detail screenshot
-  fields.push({
-    name: '🖼️ In-Game Profile Screenshot',
-    value: screenshotUrl
-      ? `[Lihat Screenshot](${screenshotUrl})`
-      : appeal.screenshot_url || '*Screenshot Terlampir*',
-    inline: false,
-  });
+  if (appeal.permanent_block) {
+    fields.push({
+      name: '⛔ Future Appeals',
+      value: 'Permanently blocked because the appeal was denied with a Gear Score below the minimum.',
+      inline: false,
+    });
+  }
 
-  // Tambahkan detail reviewer jika sudah diproses
+  // Show reviewer details after a final decision
   if (appeal.status === 'APPROVED' || appeal.status === 'REJECTED') {
     fields.push({
-      name: '🛡️ Keputusan Resmi Staff',
-      value: `<@${appeal.reviewed_by}> (ID: \`${appeal.reviewed_by}\`)\nWaktu: <t:${Math.floor(appeal.reviewed_at / 1000)}:F>`,
+      name: '🛡️ Official Staff Decision',
+      value: `<@${appeal.reviewed_by}> (ID: \`${appeal.reviewed_by}\`)\nTime: <t:${Math.floor(appeal.reviewed_at / 1000)}:F>`,
       inline: false,
     });
   }
 
-  // Tambahkan alasan penolakan jika ditolak
+  // Show rejection reason
   if (appeal.status === 'REJECTED' && appeal.rejection_reason) {
     fields.push({
-      name: '📝 Alasan Penolakan',
+      name: '📝 Rejection Reason',
       value: appeal.rejection_reason,
       inline: false,
     });
   }
 
   fields.push({
-    name: '📅 Waktu Pengajuan',
+    name: '📅 Application Date',
     value: `<t:${Math.floor(appeal.created_at / 1000)}:F> (<t:${Math.floor(appeal.created_at / 1000)}:R>)`,
     inline: false,
   });
@@ -202,10 +198,6 @@ function buildStaffEmbed(appeal, voteCounts = null) {
     .addFields(fields)
     .setFooter({ text: `Guild Join Appeal System • Appeal ID: ${appeal.appeal_code}` })
     .setTimestamp(new Date(appeal.created_at));
-
-  if (screenshotUrl) {
-    embed.setImage(screenshotUrl);
-  }
 
   return embed;
 }
@@ -291,9 +283,12 @@ async function sendApplicantDm(client, userId, appeal, decision, reason = null) 
         .setTitle('JOIN APPEAL REJECTED')
         .setDescription(
           `Unfortunately, your Join Appeal (**${appeal.appeal_code}**) has been rejected.\n\n` +
-          `**Reason:**\n${reason || 'Tidak ada alasan khusus yang dicantumkan.'}\n\n` +
+          `**Reason:**\n${reason || 'No specific reason was provided.'}\n\n` +
           'Thank you for your interest in joining our guild.\n\n' +
-          'You may contact the staff if you need clarification.'
+          'You may contact the staff if you need clarification.' +
+          (appeal.permanent_block
+            ? '\n\n⛔ Your submitted Gear Score was below 6,000. You are permanently blocked from submitting future appeals.'
+            : '')
         )
         .setColor(0xe74c3c)
         .setFooter({ text: `Appeal ID: ${appeal.appeal_code}` });
@@ -340,7 +335,7 @@ async function sendWarningDm(client, userId, warningMessage, staffTag) {
 }
 
 /**
- * Membuat Modal Form Pendaftaran: Roblox Username, Screenshot URL, Alasan, Info Tambahan
+ * Build the guild appeal form modal.
  */
 function createSimplifiedAppealModal() {
   const modal = new ModalBuilder()
@@ -351,40 +346,40 @@ function createSimplifiedAppealModal() {
     .setCustomId('appeal_input_roblox_username')
     .setLabel('Roblox Username')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Masukkan username Roblox Anda (contoh: Builderman)')
+    .setPlaceholder('Enter your Roblox username (e.g. Builderman)')
     .setMinLength(3)
     .setMaxLength(50)
     .setRequired(true);
 
-  const screenshotInput = new TextInputBuilder()
-    .setCustomId('appeal_input_screenshot_url')
-    .setLabel('Screenshot Profil In-Game (Link Publik)')
+  const gearScoreInput = new TextInputBuilder()
+    .setCustomId('appeal_input_gear_score')
+    .setLabel('What is your Gear Score (GS)?')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Tempel link gambar publik; staff akan memeriksa screenshot.')
-    .setMinLength(10)
-    .setMaxLength(500)
+    .setPlaceholder('Enter your current GS as a whole number (e.g. 6500)')
+    .setMinLength(1)
+    .setMaxLength(9)
     .setRequired(true);
 
   const alasanInput = new TextInputBuilder()
     .setCustomId('appeal_input_alasan')
-    .setLabel('Alasan Ingin Bergabung')
+    .setLabel('Reason for Joining')
     .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder('Ceritakan alasan Anda ingin bergabung ke guild ini...')
+    .setPlaceholder('Tell us why you want to join this guild...')
     .setMinLength(10)
     .setMaxLength(500)
     .setRequired(true);
 
   const infoTambahanInput = new TextInputBuilder()
     .setCustomId('appeal_input_info_tambahan')
-    .setLabel('Info Tambahan: GS / Level / Aktivitas')
+    .setLabel('Additional Information: Level / Activity')
     .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder('Contoh: GS 8500, Level 85, aktif setiap hari...')
+    .setPlaceholder('For example: Level 85, active every day...')
     .setMaxLength(300)
     .setRequired(false);
 
   modal.addComponents(
     new ActionRowBuilder().addComponents(robloxInput),
-    new ActionRowBuilder().addComponents(screenshotInput),
+    new ActionRowBuilder().addComponents(gearScoreInput),
     new ActionRowBuilder().addComponents(alasanInput),
     new ActionRowBuilder().addComponents(infoTambahanInput),
   );
@@ -400,10 +395,18 @@ async function handleAppealButton(interaction) {
 
   // 1. Tombol 'Make a Join Appeal' pada panel utama
   if (customId === 'appeal_btn_start') {
+    const permanentBlock = db.getPermanentAppealBlockByUser(interaction.user.id);
+    if (permanentBlock) {
+      return interaction.reply({
+        content: '⛔ You are permanently blocked from submitting future appeals because a previous appeal was denied for Gear Score below the minimum.',
+        ephemeral: true,
+      });
+    }
+
     const existingActive = db.getActiveAppealByUser(interaction.user.id);
     if (existingActive) {
       return interaction.reply({
-        content: `⚠️ Anda sudah memiliki permohonan aktif yang sedang ditinjau (**${existingActive.appeal_code}**).\nHarap menunggu hasil peninjauan sebelum mengajukan kembali.`,
+        content: `⚠️ You already have an active appeal under review (**${existingActive.appeal_code}**). Please wait for the staff decision before submitting another.`,
         ephemeral: true,
       });
     }
@@ -411,28 +414,28 @@ async function handleAppealButton(interaction) {
     const rulesEmbed = new EmbedBuilder()
       .setTitle('📜 GUILD MEMBERSHIP RULES')
       .setDescription(
-        'Harap membaca seluruh peraturan keanggotaan guild berikut sebelum melanjutkan:\n\n' +
+        'Please read all guild membership requirements before continuing:\n\n' +
         '**1. Weekly Guild XP**\n' +
-        'Setiap anggota wajib memperoleh minimal 5.000 Guild XP per minggu.\n' +
-        'Jika mengalami kendala atau masalah tertentu, silakan hubungi Owner melalui DM.\n\n' +
+        'Members must earn at least 5,000 Guild XP per week. Contact the Owner if you have a problem.\n\n' +
         '**2. Daily Donation**\n' +
-        'Setiap anggota wajib melakukan donasi kepada guild setiap hari.\n\n' +
+        'Members must donate to the guild every day.\n\n' +
         '**3. Guild Raid**\n' +
-        'Anggota diharapkan selalu berpartisipasi dalam kegiatan Guild Raid.\n\n' +
+        'Members are expected to participate in Guild Raids.\n\n' +
         '**4. Boss Raid Schedule**\n' +
-        'Boss Raid dilaksanakan empat kali sehari:\n' +
+        'Boss Raids take place four times a day:\n' +
         '• 06.30 — Morning Raid\n' +
         '• 12.30 — Afternoon Raid\n' +
         '• 18.30 — Evening Raid\n' +
         '• 19.30 — Night Raid\n\n' +
         '**5. Minimum GS Requirement**\n' +
-        'Setiap anggota wajib memiliki minimal 6.000+ GS.\n\n' +
+        'Applicants must have at least 6,000 Gear Score (GS).\n\n' +
         '**6. Activity Requirement**\n' +
-        'Anggota tidak diperbolehkan offline atau tidak aktif selama lebih dari 3 hari berturut-turut tanpa pemberitahuan atau alasan yang jelas kepada Owner.\n\n' +
-        '⚠️ **Apakah Anda menyetujui seluruh peraturan di atas dan siap berkomitmen?**'
+        'Members must not be inactive for more than 3 consecutive days without notifying the Owner.\n\n' +
+        '⛔ **Important:** If your GS is below 6,000 and staff denies your appeal, you will be permanently blocked from submitting future appeals.\n\n' +
+        '⚠️ **Do you agree to these requirements and commit to following them?**'
       )
       .setColor(0xf1c40f)
-      .setFooter({ text: 'Langkah 1/2: Persetujuan Rules Guild' });
+      .setFooter({ text: 'Step 1/2: Guild Rules Agreement' });
 
     const rulesRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -457,7 +460,7 @@ async function handleAppealButton(interaction) {
   // 2. Tombol 'Cancel' pada tahapan Rules
   if (customId === 'appeal_btn_rules_cancel') {
     return interaction.update({
-      content: '❌ Pengajuan dibatalkan. Anda dapat menekan tombol pada panel kapan saja jika ingin memulai kembali.',
+      content: '❌ Application cancelled. You can use the panel to start again at any time.',
       embeds: [],
       components: [],
     });
@@ -465,10 +468,18 @@ async function handleAppealButton(interaction) {
 
   // 3. Tombol 'I Agree & Continue' pada tahapan Rules -> Buka Simplified Modal
   if (customId === 'appeal_btn_rules_agree') {
+    const permanentBlock = db.getPermanentAppealBlockByUser(interaction.user.id);
+    if (permanentBlock) {
+      return interaction.reply({
+        content: '⛔ You are permanently blocked from submitting future appeals because a previous appeal was denied for Gear Score below the minimum.',
+        ephemeral: true,
+      });
+    }
+
     const existingActive = db.getActiveAppealByUser(interaction.user.id);
     if (existingActive) {
       return interaction.reply({
-        content: `⚠️ Anda sudah memiliki permohonan aktif yang sedang ditinjau (**${existingActive.appeal_code}**).`,
+        content: `⚠️ You already have an active appeal under review (**${existingActive.appeal_code}**).`,
         ephemeral: true,
       });
     }
@@ -486,19 +497,33 @@ async function handleAppealModal(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     const robloxUsername = interaction.fields.getTextInputValue('appeal_input_roblox_username').trim();
-    const screenshotInput = interaction.fields.getTextInputValue('appeal_input_screenshot_url').trim();
+    const gearScoreInput = interaction.fields.getTextInputValue('appeal_input_gear_score').trim();
     const alasan = (interaction.fields.getTextInputValue('appeal_input_alasan') || '').trim().slice(0, 500);
     const infoTambahan = (interaction.fields.getTextInputValue('appeal_input_info_tambahan') || '').trim().slice(0, 300) || '-';
 
-    // Proteksi: appeal pending aktif
-    const existingActive = db.getActiveAppealByUser(interaction.user.id);
-    if (existingActive) {
+    if (!/^\d{1,9}$/.test(gearScoreInput) || !Number.isSafeInteger(Number(gearScoreInput))) {
       return interaction.editReply({
-        content: `⚠️ Anda masih memiliki permohonan aktif yang sedang ditinjau (**${existingActive.appeal_code}**).\nHarap menunggu keputusan staff sebelum mengajukan permohonan baru.`,
+        content: '❌ Gear Score must be a whole number between 0 and 999,999,999.',
+      });
+    }
+    const gearScore = Number(gearScoreInput);
+
+    const permanentBlock = db.getPermanentAppealBlockByUser(interaction.user.id);
+    if (permanentBlock) {
+      return interaction.editReply({
+        content: '⛔ You are permanently blocked from submitting future appeals because a previous appeal was denied for Gear Score below the minimum.',
       });
     }
 
-    // Cooldown 2 hari dari pengajuan terakhir (apapun statusnya)
+    // Prevent multiple active appeals
+    const existingActive = db.getActiveAppealByUser(interaction.user.id);
+    if (existingActive) {
+      return interaction.editReply({
+        content: `⚠️ You already have an active appeal under review (**${existingActive.appeal_code}**). Please wait for the staff decision before submitting another.`,
+      });
+    }
+
+    // Two-day cooldown after the latest final decision; Owners bypass this for testing.
     const COOLDOWN_MS = 2 * 24 * 60 * 60 * 1000;
     const latestAppeal = db.getLatestAppealByUser(interaction.user.id);
     const isOwner =
@@ -509,7 +534,7 @@ async function handleAppealModal(interaction) {
       if (elapsed < COOLDOWN_MS) {
         const cooldownEndsAt = Math.floor((latestAppeal.created_at + COOLDOWN_MS) / 1000);
         return interaction.editReply({
-          content: `⏳ Anda sedang dalam masa cooldown **2 hari** setelah pengajuan terakhir.\nAnda dapat mengajukan kembali <t:${cooldownEndsAt}:R> (<t:${cooldownEndsAt}:f>).`,
+          content: `⏳ You are on a **2-day cooldown** after your last appeal.\nYou can submit again <t:${cooldownEndsAt}:R> (<t:${cooldownEndsAt}:f>).`,
         });
       }
     }
@@ -519,7 +544,7 @@ async function handleAppealModal(interaction) {
     if (!targetChannelId || targetChannelId.trim() === '') {
       logger.error('GUILD_APPEAL_CHANNEL_ID belum dikonfigurasi pada file .env');
       return interaction.editReply({
-        content: '⚠️ Channel pengajuan belum diatur oleh administrator server. Silakan hubungi staff guild.',
+        content: '⚠️ The appeal channel has not been configured. Please contact the guild staff.',
       });
     }
 
@@ -532,7 +557,7 @@ async function handleAppealModal(interaction) {
 
     if (!staffChannel || !staffChannel.isTextBased()) {
       return interaction.editReply({
-        content: '❌ Channel pengajuan tidak ditemukan atau bot tidak memiliki izin akses.',
+        content: '❌ The appeal channel could not be found or the bot cannot access it.',
       });
     }
 
@@ -546,7 +571,7 @@ async function handleAppealModal(interaction) {
         userId: interaction.user.id,
         userTag: interaction.user.tag,
         robloxUsername,
-        screenshotUrl: screenshotInput,
+        gearScore,
         reason: alasan,
         extraInfo: infoTambahan,
         rulesAgreed: 1,
@@ -555,7 +580,7 @@ async function handleAppealModal(interaction) {
     } catch (dbError) {
       logger.error('Gagal menyimpan appeal ke database SQLite:', dbError);
       return interaction.editReply({
-        content: '❌ Terjadi kendala saat menyimpan data pengajuan Anda ke sistem database. Silakan coba lagi.',
+        content: '❌ Your application could not be saved. Please try again later.',
       });
     }
 
@@ -569,7 +594,7 @@ async function handleAppealModal(interaction) {
       logger.error(`Gagal membuat embed appeal ${appeal.appeal_code}:`, embedError);
       db.deleteUnsentAppeal(appeal.id);
       return interaction.editReply({
-        content: '❌ Formulir tidak dapat diproses karena ada data yang tidak valid. Silakan periksa kembali dan kirim ulang.',
+        content: '❌ The form contains invalid data. Please check it and submit again.',
       });
     }
 
@@ -587,7 +612,7 @@ async function handleAppealModal(interaction) {
         logger.error(`Gagal membersihkan appeal ${appeal.appeal_code} yang belum terkirim:`, deleteError);
       }
       return interaction.editReply({
-        content: '⚠️ Formulir belum terkirim ke channel. Silakan coba kirim ulang atau hubungi staff.',
+        content: '⚠️ Your application was not sent to the review channel. Please try again or contact the staff.',
       });
     }
 
@@ -596,36 +621,36 @@ async function handleAppealModal(interaction) {
     } catch (trackingError) {
       logger.error(`Pesan appeal terkirim tetapi gagal menyimpan ID pesannya (${appeal.appeal_code}):`, trackingError);
       return interaction.editReply({
-        content: '⚠️ Formulir sudah terkirim ke channel, tetapi gagal memperbarui status pengiriman. Hubungi staff.',
+        content: '⚠️ Your application was sent, but its delivery status could not be updated. Please contact the staff.',
       });
     }
 
     logger.info(
-      `Appeal ${appeal.appeal_code} (Roblox: ${robloxUsername}) dikirim ke GUILD_APPEAL_CHANNEL_ID (Msg ID: ${staffMessage.id})`
+      `Appeal ${appeal.appeal_code} (Roblox: ${robloxUsername}) sent to GUILD_APPEAL_CHANNEL_ID (Msg ID: ${staffMessage.id})`
     );
 
     await sendAppealLog(interaction.client, {
-      title: 'Pengajuan Baru Diterima',
+      title: 'New Appeal Submitted',
       color: 0x3498db,
       fields: [
         { name: '📋 Appeal ID', value: appeal.appeal_code, inline: true },
-        { name: '👤 Pengaju', value: `<@${appeal.user_id}> (${appeal.user_tag})`, inline: true },
+        { name: '👤 Applicant', value: `<@${appeal.user_id}> (${appeal.user_tag})`, inline: true },
         { name: '🎮 Roblox Username', value: robloxUsername, inline: true },
-        { name: '📝 Alasan', value: alasan.slice(0, 500), inline: false },
-        { name: '🖼️ Screenshot', value: screenshotInput, inline: false },
+        { name: '⚔️ Gear Score', value: `${gearScore.toLocaleString('en-US')} GS`, inline: true },
+        { name: '📝 Reason for Joining', value: alasan.slice(0, 500), inline: false },
       ],
     });
 
     const userConfirmEmbed = new EmbedBuilder()
-      .setTitle('✅ Permohonan Bergabung Berhasil Dikirim')
+      .setTitle('✅ Appeal Submitted Successfully')
       .setDescription(
-        `Terima kasih **${interaction.user.username}**, formulir Anda telah berhasil kami terima!\n\n` +
+        `Thank you, **${interaction.user.username}**. Your application has been received!\n\n` +
         `• **Appeal ID:** ${appeal.appeal_code}\n` +
         `• **Roblox Username:** ${robloxUsername}\n` +
-        '• **Screenshot Profil:** Link diterima; screenshot akan diperiksa staff.\n\n' +
-        '⚠️ **Peringatan:** Pastikan memakai link gambar publik. Screenshot yang tidak dapat dibuka atau tidak sesuai dapat ditolak oleh staff.\n\n' +
-        'Pengajuan Anda telah diteruskan ke channel komunitas untuk evaluasi dan voting.\n\n' +
-        '📌 **Catatan:** Selama permohonan berstatus `Under Review`, Anda tidak dapat mengirimkan permohonan baru.'
+        `• **Gear Score:** ${gearScore.toLocaleString('en-US')} GS\n\n` +
+        'Your appeal has been sent to the community review and voting channel.\n\n' +
+        `⛔ **Important:** If your GS is below ${MINIMUM_GEAR_SCORE.toLocaleString('en-US')} and staff denies your appeal, you will be permanently blocked from submitting future appeals.\n\n` +
+        '📌 You cannot submit another appeal while this one is under review.'
       )
       .setColor(0x2ecc71)
       .setFooter({ text: `Appeal ID: ${appeal.appeal_code}` })
@@ -857,13 +882,13 @@ async function handleStaffReviewButton(interaction) {
   if (action === 'REJECT') {
     const rejectModal = new ModalBuilder()
       .setCustomId(`appeal_modal_reject_${appealId}`)
-      .setTitle(`Tolak Appeal ${appeal.appeal_code}`);
+      .setTitle(`Deny Appeal ${appeal.appeal_code}`);
 
     const reasonInput = new TextInputBuilder()
       .setCustomId('appeal_input_reject_reason')
-      .setLabel('Alasan Penolakan')
+      .setLabel('Reason for Denial')
       .setStyle(TextInputStyle.Paragraph)
-      .setPlaceholder('Tuliskan alasan penolakan secara jelas...')
+      .setPlaceholder('Explain the denial. GS below 6,000 permanently blocks future appeals.')
       .setMinLength(5)
       .setMaxLength(1000)
       .setRequired(true);
@@ -914,7 +939,16 @@ async function handleStaffRejectModal(interaction) {
     return interaction.editReply({ content: '❌ ID permohonan tidak valid.' });
   }
 
-  const reviewResult = db.reviewAppeal(appealId, 'REJECTED', user.id, rejectionReason);
+  const appeal = db.getAppealById(appealId);
+  if (!appeal) {
+    return interaction.editReply({ content: '❌ Appeal data could not be found.' });
+  }
+
+  const permanentlyBlock =
+    appeal.gear_score !== null &&
+    appeal.gear_score !== undefined &&
+    Number(appeal.gear_score) < MINIMUM_GEAR_SCORE;
+  const reviewResult = db.reviewAppeal(appealId, 'REJECTED', user.id, rejectionReason, permanentlyBlock);
   if (!reviewResult.success) {
     return interaction.editReply({
       content: `⚠️ Permohonan ini sudah diproses sebelumnya dengan status **${reviewResult.appeal?.status}** oleh <@${reviewResult.appeal?.reviewed_by}>.`,
@@ -949,20 +983,24 @@ async function handleStaffRejectModal(interaction) {
 
   // Audit log
   await sendAppealLog(interaction.client, {
-    title: '❌ Appeal Ditolak',
+    title: '❌ Appeal Denied',
     color: 0xe74c3c,
     fields: [
       { name: '📋 Appeal ID', value: updatedAppeal.appeal_code, inline: true },
       { name: '🎮 Roblox', value: updatedAppeal.roblox_username || updatedAppeal.ign || '-', inline: true },
-      { name: '👤 Pengaju', value: `<@${updatedAppeal.user_id}>`, inline: true },
-      { name: '🛡️ Ditolak Oleh', value: `<@${user.id}> (${user.tag})`, inline: false },
-      { name: '📝 Alasan Penolakan', value: rejectionReason, inline: false },
-      { name: '📩 DM Notifikasi', value: dmSentReject ? '✅ Terkirim' : '❌ Gagal (DM tertutup)', inline: false },
+      { name: '⚔️ Gear Score', value: `${updatedAppeal.gear_score ?? 'Not provided'} GS`, inline: true },
+      { name: '👤 Applicant', value: `<@${updatedAppeal.user_id}>`, inline: true },
+      { name: '🛡️ Denied By', value: `<@${user.id}> (${user.tag})`, inline: false },
+      { name: '📝 Reason for Denial', value: rejectionReason, inline: false },
+      { name: '⛔ Future Appeals', value: updatedAppeal.permanent_block ? 'Permanently blocked' : 'Not blocked', inline: true },
+      { name: '📩 DM Status', value: dmSentReject ? '✅ Sent' : '❌ Failed (DMs closed)', inline: false },
     ],
   });
 
   return interaction.editReply({
-    content: `❌ Permohonan **${updatedAppeal.appeal_code}** (${updatedAppeal.roblox_username || updatedAppeal.ign}) telah ditolak secara resmi.`,
+    content: updatedAppeal.permanent_block
+      ? `❌ Appeal **${updatedAppeal.appeal_code}** denied. Because the submitted GS was below 6,000, this user is permanently blocked from submitting future appeals.`
+      : `❌ Appeal **${updatedAppeal.appeal_code}** (${updatedAppeal.roblox_username || updatedAppeal.ign}) has been denied.`,
   });
 }
 

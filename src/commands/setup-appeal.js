@@ -89,18 +89,19 @@ module.exports = {
     const panelEmbed = new EmbedBuilder()
       .setTitle('🛡️ Guild Join Appeal')
       .setDescription(
-        'Selamat datang di portal pendaftaran dan permohonan bergabung guild kami!\n\n' +
-        'Kami menyambut pemain yang aktif, berkomitmen, serta siap berkontribusi secara positif dalam komunitas. ' +
-        'Jika Anda tertarik menjadi bagian dari tim kami, silakan ajukan permohonan dengan menekan tombol di bawah.\n\n' +
-        '📌 **Persyaratan Sebelum Mengajukan:**\n' +
-        '• Akun game aktif dan siap berpartisipasi dalam kegiatan guild.\n' +
-        '• Menjunjung tinggi sportivitas, etika komunikasi, dan saling menghormati.\n' +
-        '• Wajib mematuhi seluruh peraturan internal guild & Discord server.\n' +
-        '• Bersedia membaca dan menyetujui Rules Guild sebelum mengisi formulir.\n\n' +
-        '*Tekan tombol di bawah untuk membaca peraturan dan memulai pengajuan.*'
+        'Welcome to the guild membership application portal!\n\n' +
+        'We welcome active, committed players who are ready to contribute positively to the community. ' +
+        'If you would like to join, start your application using the button below.\n\n' +
+        '📌 **Requirements before applying:**\n' +
+        '• An active game account and willingness to participate in guild activities.\n' +
+        '• Respectful communication and good sportsmanship.\n' +
+        '• Compliance with guild and Discord server rules.\n' +
+        '• A minimum Gear Score of 6,000.\n' +
+        '• Read and agree to the guild rules before submitting the form.\n\n' +
+        '*Press the button below to review the rules and start your application.*'
       )
       .setColor(0x3498db)
-      .setFooter({ text: 'Guild Join Appeal System • Pastikan membaca rules terlebih dahulu' })
+      .setFooter({ text: 'Guild Join Appeal System • Please review the rules before applying' })
       .setTimestamp();
 
     // 6. Susun Tombol Pendaftaran

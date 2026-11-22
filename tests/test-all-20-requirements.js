@@ -15,6 +15,7 @@ async function run20MandatoryTests() {
   config.staffRoleId = 'staff-role-456';
   config.appealChannelId = 'chan-appeal-pub-1';
   config.staffChannelId = 'chan-staff-review-2';
+  config.joinAppealChannelId = config.appealChannelId;
   config.guildAppealChannelId = config.staffChannelId;
 
   const mockStaffMember = {
@@ -119,10 +120,23 @@ async function run20MandatoryTests() {
   console.log('   Contains 6 rules:', rule1 && rule2 && rule3 && rule4 && rule5 && rule6);
   if (!(rule1 && rule2 && rule3 && rule4 && rule5 && rule6)) throw new Error('Test 3 Failed');
 
+  let formModal = null;
+  await appealInteractions.handleAppealButton({
+    customId: 'appeal_btn_rules_agree',
+    user: { id: 'user-modal-test' },
+    showModal: async (modal) => {
+      formModal = modal.toJSON();
+    },
+  });
+  const formInputIds = formModal.components.map((row) => row.components[0].custom_id);
+  if (!formInputIds.includes('appeal_input_gear_score') || formInputIds.some((id) => id.includes('screenshot'))) {
+    throw new Error('Appeal form does not use Gear Score instead of screenshot');
+  }
+
   // ----------------------------------------------------
-  // TEST 4, 5, 6, 7: Roblox Username, Screenshot, STAFF_CHANNEL_ID, Auto-numbering
+  // TEST 4, 5, 6, 7: Roblox Username, Gear Score, STAFF_CHANNEL_ID, Auto-numbering
   // ----------------------------------------------------
-  console.log('\nTEST 4, 5, 6, 7: Form Roblox Username, Screenshot, STAFF_CHANNEL_ID & Auto-numbering');
+  console.log('\nTEST 4, 5, 6, 7: Form Roblox Username, Gear Score, STAFF_CHANNEL_ID & Auto-numbering');
   let sentToStaffChannelId = null;
   let staffEmbedData = null;
   let staffComponents = null;
@@ -149,7 +163,8 @@ async function run20MandatoryTests() {
     fields: {
       getTextInputValue: (field) => {
         if (field === 'appeal_input_roblox_username') return 'RobloxMaster99';
-        if (field === 'appeal_input_screenshot_url') return 'www.imgur.com/gallery/exampleProfile';
+        if (field === 'appeal_input_gear_score') return '6500';
+        if (field === 'appeal_input_alasan') return 'I want to contribute to the guild.';
         return '';
       },
     },
@@ -159,11 +174,11 @@ async function run20MandatoryTests() {
 
   console.log('   Sent to STAFF_CHANNEL_ID:', sentToStaffChannelId === config.staffChannelId);
   console.log('   Roblox Username in Embed:', staffEmbedData.data.fields.find((f) => f.name.includes('Roblox'))?.value);
-  console.log('   Screenshot attached in Embed:', staffEmbedData.data.image?.url);
+  console.log('   Gear Score in Embed:', staffEmbedData.data.fields.find((f) => f.name.includes('Gear Score'))?.value);
   console.log('   Appeal Auto-Number in Embed:', staffEmbedData.data.title);
-  const screenshotField = staffEmbedData.data.fields.find((f) => f.name.includes('Screenshot'));
-  if (sentToStaffChannelId !== config.staffChannelId || !screenshotField?.value.includes('www.imgur.com/gallery/exampleProfile')) {
-    throw new Error('Appeal with an invalid screenshot link was not delivered to the staff channel');
+  const gearScoreField = staffEmbedData.data.fields.find((f) => f.name.includes('Gear Score'));
+  if (sentToStaffChannelId !== config.staffChannelId || !gearScoreField?.value.includes('6,500 GS')) {
+    throw new Error('Gear Score was not included in the staff appeal embed');
   }
   if (staffComponents[1].components.length !== 1 || staffComponents[1].components[0].data.label !== 'Manage') {
     throw new Error('Appeal does not have a single Manage button');
@@ -177,7 +192,7 @@ async function run20MandatoryTests() {
   if (sentToStaffChannelId === config.appealChannelId) throw new Error('Test 2 Failed');
 
   const app1 = db.getActiveAppealByUser('user-applicant-1');
-  if (!app1 || !app1.appeal_code.startsWith('#')) throw new Error('Test 4/5/6/7 Failed');
+  if (!app1 || !/^Guild Appeal --\d+$/.test(app1.appeal_code)) throw new Error('Test 4/5/6/7 Failed');
 
   let statusMenu = null;
   await appealInteractions.handleStaffReviewButton({
@@ -246,7 +261,7 @@ async function run20MandatoryTests() {
     customId: 'appeal_btn_start',
     user: { id: 'user-applicant-1' },
     reply: async (res) => {
-      dupBlocked = res.content.includes('sudah memiliki permohonan aktif');
+      dupBlocked = res.content.includes('already have an active appeal');
     },
   });
   console.log('   Duplicate applicant blocked:', dupBlocked);
@@ -315,7 +330,7 @@ async function run20MandatoryTests() {
     guild: { ownerId: 'owner-id' },
     user: { id: 'staff-user-1', tag: 'StaffOne#0001' },
     client: mockClient,
-    fields: { getTextInputValue: () => 'Harap perbaiki screenshot agar nama terlihat jelas.' },
+    fields: { getTextInputValue: () => 'Please provide an update about your weekly activity.' },
     deferReply: async () => {},
     editReply: async (res) => {
       warn1Success = res.content.includes('berhasil dikirim');
@@ -347,7 +362,7 @@ async function run20MandatoryTests() {
     userId: 'user-closed-dm',
     userTag: 'Closed#0001',
     robloxUsername: 'PrivateDmPlayer',
-    screenshotUrl: 'https://i.imgur.com/dummy.png',
+    gearScore: 7000,
   });
   let closedDmNotice = false;
   await appealInteractions.handleStaffWarnModal({
@@ -376,10 +391,10 @@ async function run20MandatoryTests() {
     guild: { ownerId: 'owner-id' },
     user: { id: 'staff-user-1', tag: 'StaffOne#0001' },
     client: mockClient,
-    fields: { getTextInputValue: () => 'Gear Score belum mencapai batas 6.000 GS.' },
+    fields: { getTextInputValue: () => 'The application does not meet the guild requirements.' },
     deferReply: async () => {},
     editReply: async (res) => {
-      rejectSuccess = res.content.includes('telah ditolak secara resmi');
+      rejectSuccess = res.content.includes('has been denied');
     },
   });
   const closedDmAfterReject = db.getAppealById(appClosedDm.id);
@@ -411,8 +426,9 @@ async function run20MandatoryTests() {
     fields: {
       getTextInputValue: (field) => {
         if (field === 'appeal_input_roblox_username') return 'RetryApplicant';
-        if (field === 'appeal_input_screenshot_url') return 'https://imgur.com/gallery/retry';
-        return 'Owner cooldown test';
+        if (field === 'appeal_input_gear_score') return '7000';
+        if (field === 'appeal_input_alasan') return 'Owner cooldown test';
+        return '';
       },
     },
     deferReply: async () => {},
@@ -421,6 +437,43 @@ async function run20MandatoryTests() {
     },
   });
   if (!ownerResubmissionSent) throw new Error('Owner cooldown bypass failed');
+
+  const lowGsAppeal = db.createAppeal({
+    userId: 'user-low-gs',
+    userTag: 'LowGs#0001',
+    robloxUsername: 'LowGearPlayer',
+    gearScore: 5500,
+    reason: 'I want to join the guild.',
+  });
+  let lowGsRejected = false;
+  await appealInteractions.handleStaffRejectModal({
+    customId: `appeal_modal_reject_${lowGsAppeal.id}`,
+    member: mockStaffMember,
+    guild: { ownerId: 'owner-id' },
+    user: { id: 'staff-user-1', tag: 'StaffOne#0001' },
+    client: mockClient,
+    fields: { getTextInputValue: () => 'Gear Score is below the 6,000 minimum.' },
+    deferReply: async () => {},
+    editReply: async (payload) => {
+      lowGsRejected = payload.content.includes('permanently blocked');
+    },
+  });
+  if (!lowGsRejected || db.getAppealById(lowGsAppeal.id).permanent_block !== 1) {
+    throw new Error('Low Gear Score denial did not create a permanent appeal block');
+  }
+
+  let permanentBlockMessage = '';
+  await appealInteractions.handleAppealButton({
+    customId: 'appeal_btn_start',
+    user: { id: 'user-low-gs' },
+    guild: { ownerId: 'user-low-gs' },
+    reply: async (payload) => {
+      permanentBlockMessage = payload.content;
+    },
+  });
+  if (!permanentBlockMessage.includes('permanently blocked')) {
+    throw new Error('Permanently blocked user was allowed to start another appeal');
+  }
 
   // ----------------------------------------------------
   // TEST 13 & 19: Staff berhasil Approve & Semua tombol nonaktif setelah keputusan

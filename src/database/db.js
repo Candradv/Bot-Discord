@@ -27,7 +27,9 @@ db.exec(`
     reason TEXT NOT NULL,
     experience TEXT NOT NULL,
     screenshot_url TEXT DEFAULT NULL,
+    gear_score INTEGER DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'PENDING_REVIEW',
+    permanent_block INTEGER NOT NULL DEFAULT 0,
     channel_id TEXT DEFAULT NULL,
     message_id TEXT DEFAULT NULL,
     created_at INTEGER NOT NULL,
@@ -91,6 +93,12 @@ if (!colNames.has('vote_ends_at')) {
 if (!colNames.has('member_rating')) {
   db.exec('ALTER TABLE appeals ADD COLUMN member_rating TEXT DEFAULT NULL;');
 }
+if (!colNames.has('gear_score')) {
+  db.exec('ALTER TABLE appeals ADD COLUMN gear_score INTEGER DEFAULT NULL;');
+}
+if (!colNames.has('permanent_block')) {
+  db.exec('ALTER TABLE appeals ADD COLUMN permanent_block INTEGER NOT NULL DEFAULT 0;');
+}
 
 // Prepared Statements for Appeals
 const stmtGetActiveByUser = db.prepare(`
@@ -107,12 +115,19 @@ const stmtGetLatestByUser = db.prepare(`
   LIMIT 1
 `);
 
+const stmtGetPermanentBlockByUser = db.prepare(`
+  SELECT * FROM appeals
+  WHERE user_id = ? AND permanent_block = 1
+  ORDER BY reviewed_at DESC
+  LIMIT 1
+`);
+
 const stmtInsertAppeal = db.prepare(`
   INSERT INTO appeals (
     appeal_code, user_id, user_tag, ign, age_timezone, 
-    reason, experience, screenshot_url, status, created_at, updated_at,
+    reason, experience, screenshot_url, gear_score, status, created_at, updated_at,
     roblox_username, rules_agreed, extra_info, vote_ends_at, member_rating
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING_REVIEW', ?, ?, ?, ?, ?, ?, ?)
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING_REVIEW', ?, ?, ?, ?, ?, ?, ?)
 `);
 
 const stmtUpdateCode = db.prepare(`
@@ -134,7 +149,7 @@ const stmtDeleteUnsentAppeal = db.prepare(`
 
 const stmtReviewAppeal = db.prepare(`
   UPDATE appeals 
-  SET status = ?, reviewed_by = ?, reviewed_at = ?, rejection_reason = ?, updated_at = ?
+  SET status = ?, reviewed_by = ?, reviewed_at = ?, rejection_reason = ?, permanent_block = ?, updated_at = ?
   WHERE id = ? AND status = 'PENDING_REVIEW'
 `);
 
@@ -205,6 +220,10 @@ function getLatestAppealByUser(userId) {
   return stmtGetLatestByUser.get(userId) || null;
 }
 
+function getPermanentAppealBlockByUser(userId) {
+  return stmtGetPermanentBlockByUser.get(userId) || null;
+}
+
 /**
  * Menyimpan data appeal baru dengan format nomor urut: Guild Appeal --1, Guild Appeal --2
  */
@@ -218,6 +237,7 @@ function createAppeal({
   ageTimezone = '-',
   experience = '-',
   screenshotUrl = null,
+  gearScore = null,
   rulesAgreed = 1,
   memberRating = null,
 }) {
@@ -236,6 +256,7 @@ function createAppeal({
     reason,
     experience,
     screenshotUrl,
+    gearScore,
     now,
     now,
     effectiveRoblox,
@@ -268,9 +289,9 @@ function deleteUnsentAppeal(id) {
 /**
  * Memproses keputusan review (Approve / Reject) secara atomik.
  */
-function reviewAppeal(id, status, staffId, rejectionReason = null) {
+function reviewAppeal(id, status, staffId, rejectionReason = null, permanentBlock = false) {
   const now = Date.now();
-  const result = stmtReviewAppeal.run(status, staffId, now, rejectionReason, now, id);
+  const result = stmtReviewAppeal.run(status, staffId, now, rejectionReason, permanentBlock ? 1 : 0, now, id);
   const appeal = getAppealById(id);
 
   return {
@@ -387,6 +408,7 @@ module.exports = {
   db,
   getActiveAppealByUser,
   getLatestAppealByUser,
+  getPermanentAppealBlockByUser,
   createAppeal,
   updateAppealMessage,
   deleteUnsentAppeal,
