@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
 const { config, validateConfig } = require('./config');
 const { loadEvents } = require('./handlers/eventHandler');
 const { loadCommands } = require('./handlers/commandHandler');
@@ -18,8 +18,8 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.MessageContent,
   ],
+  partials: [Partials.Channel],
 });
 
 // Command registry collection
