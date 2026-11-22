@@ -3,6 +3,8 @@ const db = require('../src/database/db');
 const appealInteractions = require('../src/utils/appealInteractions');
 const setupAppeal = require('../src/commands/setup-appeal');
 const guildWarning = require('../src/commands/guild-warning');
+const appealBlock = require('../src/commands/appeal-block');
+const appealUnblock = require('../src/commands/appeal-unblock');
 const { config } = require('../src/config');
 const { DatabaseSync } = require('node:sqlite');
 
@@ -686,6 +688,68 @@ async function run20MandatoryTests() {
   });
   if (db.getAppealById(accurateLowGsAppeal.id).permanent_block !== 0) {
     throw new Error('Accurate low Gear Score denial incorrectly created a permanent block');
+  }
+
+  const manualBlockOwner = {
+    id: 'manual-block-owner',
+    roles: { cache: new Map() },
+    permissions: { has: () => false },
+  };
+  const manualBlockClient = {
+    channels: {
+      fetch: async (id) => ({
+        id,
+        isTextBased: () => true,
+        send: async () => ({ id: 'audit-log-message' }),
+      }),
+    },
+  };
+  const manualBlockOptions = {
+    getUser: () => ({ id: 'manual-block-target', tag: 'ManualBlock#0001', bot: false }),
+    getMember: () => ({ id: 'manual-block-target' }),
+    getString: () => 'Manual staff review requires an appeal block.',
+  };
+  let manualBlockReply = '';
+  await appealBlock.execute({
+    inGuild: () => true,
+    member: manualBlockOwner,
+    guild: { ownerId: manualBlockOwner.id },
+    user: { id: manualBlockOwner.id, tag: 'ManualOwner#0001' },
+    options: manualBlockOptions,
+    deferReply: async () => {},
+    editReply: async (payload) => {
+      manualBlockReply = payload.content;
+    },
+  }, manualBlockClient);
+  if (!db.getPermanentAppealBlockByUser('manual-block-target') || !manualBlockReply.includes('permanently blocked')) {
+    throw new Error('/appeal-block did not create an active block');
+  }
+
+  let manualBlockPreventedAppeal = false;
+  await appealInteractions.handleAppealButton({
+    customId: 'appeal_btn_start',
+    user: { id: 'manual-block-target' },
+    guild: { ownerId: 'server-owner-id' },
+    reply: async (payload) => {
+      manualBlockPreventedAppeal = payload.content.includes('permanently blocked');
+    },
+  });
+  if (!manualBlockPreventedAppeal) throw new Error('Manual appeal block did not prevent a new submission');
+
+  let manualUnblockReply = '';
+  await appealUnblock.execute({
+    inGuild: () => true,
+    member: manualBlockOwner,
+    guild: { ownerId: manualBlockOwner.id },
+    user: { id: manualBlockOwner.id, tag: 'ManualOwner#0001' },
+    options: manualBlockOptions,
+    deferReply: async () => {},
+    editReply: async (payload) => {
+      manualUnblockReply = payload.content;
+    },
+  }, manualBlockClient);
+  if (db.getPermanentAppealBlockByUser('manual-block-target') || !manualUnblockReply.includes('can submit appeals again')) {
+    throw new Error('/appeal-unblock did not remove the active block');
   }
 
   // ----------------------------------------------------

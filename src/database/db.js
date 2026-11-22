@@ -39,6 +39,21 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_appeals_user_status ON appeals(user_id, status);
   CREATE INDEX IF NOT EXISTS idx_appeals_message_id ON appeals(message_id);
 
+  CREATE TABLE IF NOT EXISTS appeal_user_blocks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    blocked_by TEXT NOT NULL,
+    blocked_at INTEGER NOT NULL,
+    unblocked_by TEXT DEFAULT NULL,
+    unblocked_at INTEGER DEFAULT NULL,
+    unblock_reason TEXT DEFAULT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_appeal_user_blocks_active
+    ON appeal_user_blocks(user_id)
+    WHERE unblocked_at IS NULL;
+
   CREATE TABLE IF NOT EXISTS votes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     appeal_id INTEGER NOT NULL,
@@ -103,6 +118,24 @@ if (!colNames.has('permanent_block')) {
   db.exec('ALTER TABLE appeals ADD COLUMN permanent_block INTEGER NOT NULL DEFAULT 0;');
 }
 
+db.exec(`
+  INSERT INTO appeal_user_blocks (user_id, reason, blocked_by, blocked_at)
+  SELECT a.user_id,
+         COALESCE(NULLIF(a.rejection_reason, ''), 'Existing permanent Gear Score mismatch block'),
+         COALESCE(a.reviewed_by, 'system'),
+         COALESCE(a.reviewed_at, a.created_at)
+  FROM appeals a
+  WHERE a.permanent_block = 1
+    AND a.id = (
+      SELECT MAX(previous.id)
+      FROM appeals previous
+      WHERE previous.user_id = a.user_id AND previous.permanent_block = 1
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM appeal_user_blocks existing WHERE existing.user_id = a.user_id
+    );
+`);
+
 // Prepared Statements for Appeals
 const stmtGetActiveByUser = db.prepare(`
   SELECT * FROM appeals 
@@ -119,10 +152,21 @@ const stmtGetLatestByUser = db.prepare(`
 `);
 
 const stmtGetPermanentBlockByUser = db.prepare(`
-  SELECT * FROM appeals
-  WHERE user_id = ? AND permanent_block = 1
-  ORDER BY reviewed_at DESC
+  SELECT * FROM appeal_user_blocks
+  WHERE user_id = ? AND unblocked_at IS NULL
+  ORDER BY blocked_at DESC
   LIMIT 1
+`);
+
+const stmtInsertAppealUserBlock = db.prepare(`
+  INSERT OR IGNORE INTO appeal_user_blocks (user_id, reason, blocked_by, blocked_at)
+  VALUES (?, ?, ?, ?)
+`);
+
+const stmtUnblockAppealUser = db.prepare(`
+  UPDATE appeal_user_blocks
+  SET unblocked_by = ?, unblocked_at = ?, unblock_reason = ?
+  WHERE user_id = ? AND unblocked_at IS NULL
 `);
 
 const stmtInsertAppeal = db.prepare(`
@@ -227,6 +271,20 @@ function getPermanentAppealBlockByUser(userId) {
   return stmtGetPermanentBlockByUser.get(userId) || null;
 }
 
+function blockAppealUser(userId, reason, blockedBy) {
+  const now = Date.now();
+  const result = stmtInsertAppealUserBlock.run(userId, reason, blockedBy, now);
+  return {
+    success: result.changes > 0,
+    block: getPermanentAppealBlockByUser(userId),
+  };
+}
+
+function unblockAppealUser(userId, unblockedBy, reason) {
+  const result = stmtUnblockAppealUser.run(unblockedBy, Date.now(), reason, userId);
+  return result.changes > 0;
+}
+
 /**
  * Menyimpan data appeal baru dengan format nomor urut: Guild Appeal --1, Guild Appeal --2
  */
@@ -298,6 +356,14 @@ function reviewAppeal(id, status, staffId, rejectionReason = null, permanentBloc
   const now = Date.now();
   const result = stmtReviewAppeal.run(status, staffId, now, rejectionReason, permanentBlock ? 1 : 0, now, id);
   const appeal = getAppealById(id);
+  if (result.changes > 0 && permanentBlock && appeal) {
+    stmtInsertAppealUserBlock.run(
+      appeal.user_id,
+      rejectionReason || 'Staff verified that actual Gear Score did not match the submitted value',
+      staffId,
+      now,
+    );
+  }
 
   return {
     success: result.changes > 0,
@@ -414,6 +480,8 @@ module.exports = {
   getActiveAppealByUser,
   getLatestAppealByUser,
   getPermanentAppealBlockByUser,
+  blockAppealUser,
+  unblockAppealUser,
   createAppeal,
   updateAppealMessage,
   deleteUnsentAppeal,

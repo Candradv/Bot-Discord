@@ -18,18 +18,17 @@ const MINIMUM_GEAR_SCORE = 6000;
 /**
  * Validasi apakah seorang member memiliki izin Staff/Owner
  */
-function isStaff(member, guild) {
+function isOwnerOrAdmin(member, guild) {
   if (!member) return false;
-  // 1. Server Owner
   if (guild && guild.ownerId === member.id) return true;
-  // 2. Administrator permission
   if (member.permissions && member.permissions.has(PermissionFlagsBits.Administrator)) return true;
-  // 3. OWNER_ROLE_ID
-  if (config.ownerRoleId && member.roles?.cache?.has(config.ownerRoleId)) return true;
-  // 4. STAFF_ROLE_ID
-  if (config.staffRoleId && member.roles?.cache?.has(config.staffRoleId)) return true;
 
-  return false;
+  return Boolean(config.ownerRoleId && member.roles?.cache?.has(config.ownerRoleId));
+}
+
+function isStaff(member, guild) {
+  if (isOwnerOrAdmin(member, guild)) return true;
+  return Boolean(config.staffRoleId && member?.roles?.cache?.has(config.staffRoleId));
 }
 
 function isAppealOwner(interaction) {
@@ -1151,6 +1150,7 @@ async function handleStaffWarnModal(interaction) {
 
 module.exports = {
   createSimplifiedAppealModal,
+  isOwnerOrAdmin,
   handleAppealButton,
   handleAppealModal,
   handleCommunityVoteButton,
