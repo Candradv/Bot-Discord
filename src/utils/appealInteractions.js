@@ -123,6 +123,14 @@ function buildStaffEmbed(appeal, voteCounts = null) {
     });
   }
 
+  if (appeal.roblox_experience) {
+    fields.push({
+      name: '🕹️ Roblox / The Forge Playtime',
+      value: appeal.roblox_experience.slice(0, 1024),
+      inline: false,
+    });
+  }
+
   // Member rating
   if (appeal.member_rating) {
     fields.push({
@@ -377,11 +385,21 @@ function createSimplifiedAppealModal() {
     .setMaxLength(300)
     .setRequired(false);
 
+  const robloxExperienceInput = new TextInputBuilder()
+    .setCustomId('appeal_input_roblox_experience')
+    .setLabel('How long have you played Roblox/The Forge?')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Example: 2 years on Roblox, 3 months in The Forge')
+    .setMinLength(2)
+    .setMaxLength(100)
+    .setRequired(true);
+
   modal.addComponents(
     new ActionRowBuilder().addComponents(robloxInput),
     new ActionRowBuilder().addComponents(gearScoreInput),
     new ActionRowBuilder().addComponents(alasanInput),
     new ActionRowBuilder().addComponents(infoTambahanInput),
+    new ActionRowBuilder().addComponents(robloxExperienceInput),
   );
 
   return modal;
@@ -500,6 +518,7 @@ async function handleAppealModal(interaction) {
     const gearScoreInput = interaction.fields.getTextInputValue('appeal_input_gear_score').trim();
     const alasan = (interaction.fields.getTextInputValue('appeal_input_alasan') || '').trim().slice(0, 500);
     const infoTambahan = (interaction.fields.getTextInputValue('appeal_input_info_tambahan') || '').trim().slice(0, 300) || '-';
+    const robloxExperience = interaction.fields.getTextInputValue('appeal_input_roblox_experience').trim().slice(0, 100);
 
     if (!/^\d{1,9}$/.test(gearScoreInput) || !Number.isSafeInteger(Number(gearScoreInput))) {
       return interaction.editReply({
@@ -574,6 +593,7 @@ async function handleAppealModal(interaction) {
         gearScore,
         reason: alasan,
         extraInfo: infoTambahan,
+        robloxExperience,
         rulesAgreed: 1,
         memberRating,
       });
@@ -637,6 +657,7 @@ async function handleAppealModal(interaction) {
         { name: '👤 Applicant', value: `<@${appeal.user_id}> (${appeal.user_tag})`, inline: true },
         { name: '🎮 Roblox Username', value: robloxUsername, inline: true },
         { name: '⚔️ Gear Score', value: `${gearScore.toLocaleString('en-US')} GS`, inline: true },
+        { name: '🕹️ Roblox / The Forge Playtime', value: robloxExperience, inline: true },
         { name: '📝 Reason for Joining', value: alasan.slice(0, 500), inline: false },
       ],
     });
@@ -648,6 +669,7 @@ async function handleAppealModal(interaction) {
         `• **Appeal ID:** ${appeal.appeal_code}\n` +
         `• **Roblox Username:** ${robloxUsername}\n` +
         `• **Gear Score:** ${gearScore.toLocaleString('en-US')} GS\n\n` +
+        `• **Roblox / The Forge Playtime:** ${robloxExperience}\n\n` +
         'Your appeal has been sent to the community review and voting channel.\n\n' +
         `⛔ **Important:** If your GS is below ${MINIMUM_GEAR_SCORE.toLocaleString('en-US')} and staff denies your appeal, you will be permanently blocked from submitting future appeals.\n\n` +
         '📌 You cannot submit another appeal while this one is under review.'

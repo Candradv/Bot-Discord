@@ -130,8 +130,12 @@ async function run20MandatoryTests() {
     },
   });
   const formInputIds = formModal.components.map((row) => row.components[0].custom_id);
-  if (!formInputIds.includes('appeal_input_gear_score') || formInputIds.some((id) => id.includes('screenshot'))) {
-    throw new Error('Appeal form does not use Gear Score instead of screenshot');
+  if (
+    !formInputIds.includes('appeal_input_gear_score') ||
+    !formInputIds.includes('appeal_input_roblox_experience') ||
+    formInputIds.some((id) => id.includes('screenshot'))
+  ) {
+    throw new Error('Appeal form is missing Gear Score or Roblox / The Forge playtime');
   }
 
   // ----------------------------------------------------
@@ -166,6 +170,7 @@ async function run20MandatoryTests() {
         if (field === 'appeal_input_roblox_username') return 'RobloxMaster99';
         if (field === 'appeal_input_gear_score') return '6500';
         if (field === 'appeal_input_alasan') return 'I want to contribute to the guild.';
+        if (field === 'appeal_input_roblox_experience') return '2 years on Roblox, 3 months in The Forge';
         return '';
       },
     },
@@ -178,8 +183,12 @@ async function run20MandatoryTests() {
   console.log('   Gear Score in Embed:', staffEmbedData.data.fields.find((f) => f.name.includes('Gear Score'))?.value);
   console.log('   Appeal Auto-Number in Embed:', staffEmbedData.data.title);
   const gearScoreField = staffEmbedData.data.fields.find((f) => f.name.includes('Gear Score'));
+  const playtimeField = staffEmbedData.data.fields.find((f) => f.name.includes('Playtime'));
   if (sentToStaffChannelId !== config.staffChannelId || !gearScoreField?.value.includes('6,500 GS')) {
     throw new Error('Gear Score was not included in the staff appeal embed');
+  }
+  if (playtimeField?.value !== '2 years on Roblox, 3 months in The Forge') {
+    throw new Error('Roblox / The Forge playtime was not included in the staff appeal embed');
   }
   if (staffComponents[1].components.length !== 1 || staffComponents[1].components[0].data.label !== 'Manage') {
     throw new Error('Appeal does not have a single Manage button');
@@ -429,6 +438,7 @@ async function run20MandatoryTests() {
         if (field === 'appeal_input_roblox_username') return 'RetryApplicant';
         if (field === 'appeal_input_gear_score') return '7000';
         if (field === 'appeal_input_alasan') return 'Owner cooldown test';
+        if (field === 'appeal_input_roblox_experience') return '3 years on Roblox, 1 month in The Forge';
         return '';
       },
     },

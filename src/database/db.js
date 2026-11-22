@@ -87,6 +87,9 @@ if (!colNames.has('rules_agreed')) {
 if (!colNames.has('extra_info')) {
   db.exec('ALTER TABLE appeals ADD COLUMN extra_info TEXT DEFAULT NULL;');
 }
+if (!colNames.has('roblox_experience')) {
+  db.exec('ALTER TABLE appeals ADD COLUMN roblox_experience TEXT DEFAULT NULL;');
+}
 if (!colNames.has('vote_ends_at')) {
   db.exec('ALTER TABLE appeals ADD COLUMN vote_ends_at INTEGER DEFAULT NULL;');
 }
@@ -126,8 +129,8 @@ const stmtInsertAppeal = db.prepare(`
   INSERT INTO appeals (
     appeal_code, user_id, user_tag, ign, age_timezone, 
     reason, experience, screenshot_url, gear_score, status, created_at, updated_at,
-    roblox_username, rules_agreed, extra_info, vote_ends_at, member_rating
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING_REVIEW', ?, ?, ?, ?, ?, ?, ?)
+    roblox_username, rules_agreed, extra_info, roblox_experience, vote_ends_at, member_rating
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING_REVIEW', ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 const stmtUpdateCode = db.prepare(`
@@ -234,6 +237,7 @@ function createAppeal({
   robloxUsername = null,
   reason = 'Ingin bergabung dengan guild.',
   extraInfo = '-',
+  robloxExperience = null,
   ageTimezone = '-',
   experience = '-',
   screenshotUrl = null,
@@ -262,6 +266,7 @@ function createAppeal({
     effectiveRoblox,
     rulesAgreed,
     extraInfo,
+    robloxExperience,
     voteEndsAt,
     memberRating,
   );

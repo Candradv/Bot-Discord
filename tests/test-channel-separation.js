@@ -114,6 +114,7 @@ async function testChannelSeparation() {
           appeal_input_gear_score: '6500',
           appeal_input_alasan: 'Testing the channel separation flow',
           appeal_input_info_tambahan: 'Level 99, active player',
+          appeal_input_roblox_experience: '2 years on Roblox, 3 months in The Forge',
         };
         return val[id];
       },
