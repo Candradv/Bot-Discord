@@ -13,7 +13,13 @@ module.exports = {
   async execute(message, client) {
     if (!message.guildId && !message.author.bot) {
       const appeal = db.getActiveAppealByUser(message.author.id);
-      if (!appeal) return;
+      if (!appeal) {
+        logger.warn(`Gear Score DM received from user ${message.author.id}, but no active appeal was found.`);
+        await message.reply(
+          'I could not find an active appeal for your account. Please submit a Guild Join Appeal first.'
+        ).catch(() => {});
+        return;
+      }
 
       const imageAttachment = message.attachments.find((attachment) =>
         (attachment.contentType && attachment.contentType.startsWith('image/')) ||

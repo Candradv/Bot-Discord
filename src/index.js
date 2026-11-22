@@ -19,7 +19,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.DirectMessages,
   ],
-  partials: [Partials.Channel],
+  partials: [Partials.Channel, Partials.Message],
 });
 
 // Command registry collection
