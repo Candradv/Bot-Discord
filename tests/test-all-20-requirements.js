@@ -748,7 +748,7 @@ async function run20MandatoryTests() {
       manualUnblockReply = payload.content;
     },
   }, manualBlockClient);
-  if (db.getPermanentAppealBlockByUser('manual-block-target') || !manualUnblockReply.includes('can submit appeals again')) {
+  if (db.getPermanentAppealBlockByUser('manual-block-target') || !manualUnblockReply.includes('Permanent appeal block removed')) {
     throw new Error('/appeal-unblock did not remove the active block');
   }
 

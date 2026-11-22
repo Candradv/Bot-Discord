@@ -64,7 +64,7 @@ module.exports = {
     });
 
     return interaction.editReply({
-      content: `✅ **${member.tag}** can submit appeals again.`,
+      content: `✅ Permanent appeal block removed for **${member.tag}**. The normal 2-day cooldown may still apply.`,
     });
   },
 };

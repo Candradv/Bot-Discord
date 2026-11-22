@@ -176,8 +176,8 @@ function buildStaffEmbed(appeal, voteCounts = null) {
 
   if (appeal.permanent_block) {
     fields.push({
-      name: '⛔ Future Appeals',
-      value: 'Permanently blocked after staff verified that the actual Gear Score did not match the submitted value.',
+      name: '🛡️ Gear Score Verification',
+      value: 'Staff manually verified a mismatch and applied a permanent appeal block at the time of this denial.',
       inline: false,
     });
   }
