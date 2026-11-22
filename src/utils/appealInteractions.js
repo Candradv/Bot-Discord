@@ -108,6 +108,13 @@ function buildStaffEmbed(appeal, voteCounts = null) {
       inline: true,
     },
     {
+      name: '📸 Gear Score Proof',
+      value: appeal.screenshot_url
+        ? 'Image received via DM — compare it with the submitted GS.'
+        : 'Waiting for the applicant to send the Gear Score screenshot via DM.',
+      inline: true,
+    },
+    {
       name: '📌 Application Status',
       value: statusText,
       inline: true,
@@ -213,6 +220,10 @@ function buildStaffEmbed(appeal, voteCounts = null) {
     .setFooter({ text: `Guild Join Appeal System • Appeal ID: ${appeal.appeal_code}` })
     .setTimestamp(new Date(appeal.created_at));
 
+  if (appeal.screenshot_url) {
+    embed.setImage(appeal.screenshot_url);
+  }
+
   return embed;
 }
 
@@ -315,6 +326,30 @@ async function sendApplicantDm(client, userId, appeal, decision, reason = null) 
     logger.warn(
       `Gagal mengirim DM notifikasi appeal ${appeal.appeal_code} ke user ${userId} (DM ditutup/dibatasi): ${error.message}`
     );
+    return false;
+  }
+}
+
+async function sendGearScoreScreenshotDm(client, userId, appeal) {
+  try {
+    const user = await client.users.fetch(userId).catch(() => null);
+    if (!user) return false;
+
+    const dmEmbed = new EmbedBuilder()
+      .setTitle('📸 Gear Score Verification')
+      .setDescription(
+        `Please send a **clear screenshot/image of your Gear Score** for appeal **${appeal.appeal_code}**.\n\n` +
+        'Staff will compare the image with the Gear Score value submitted in your application.\n\n' +
+        '**Reply directly to this DM** by uploading one PNG, JPG, JPEG, WEBP, or GIF image.'
+      )
+      .setColor(0xf1c40f)
+      .setFooter({ text: `Appeal ID: ${appeal.appeal_code}` })
+      .setTimestamp();
+
+    await user.send({ embeds: [dmEmbed] });
+    return true;
+  } catch (error) {
+    logger.warn(`Gagal mengirim permintaan screenshot Gear Score via DM ke user ${userId}: ${error.message}`);
     return false;
   }
 }
@@ -667,6 +702,8 @@ async function handleAppealModal(interaction) {
       ],
     });
 
+    const gearScoreDmSent = await sendGearScoreScreenshotDm(interaction.client, interaction.user.id, appeal);
+
     const userConfirmEmbed = new EmbedBuilder()
       .setTitle('✅ Appeal Submitted Successfully')
       .setDescription(
@@ -676,6 +713,9 @@ async function handleAppealModal(interaction) {
         `• **Gear Score:** ${gearScore.toLocaleString('en-US')} GS\n\n` +
         `• **The Forge Play Schedule:** ${robloxExperience}\n\n` +
         'Your appeal has been sent to the community review and voting channel.\n\n' +
+        (gearScoreDmSent
+          ? '📸 **Gear Score screenshot:** Check your DM and upload a clear image of your Gear Score for staff verification.\n\n'
+          : '📸 **Gear Score screenshot:** Please contact staff and send a clear image of your Gear Score because the bot could not send the DM request.\n\n') +
         '⛔ **Important:** Staff will manually verify your actual Gear Score. If it does not match the value in your application and your appeal is denied for this mismatch, you will be permanently blocked from submitting future appeals.\n\n' +
         '📌 You cannot submit another appeal while this one is under review.'
       )
@@ -1161,5 +1201,6 @@ module.exports = {
   buildAppealActionRows,
   isStaff,
   sendApplicantDm,
+  sendGearScoreScreenshotDm,
   sendWarningDm,
 };

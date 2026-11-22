@@ -15,7 +15,11 @@ process.on('uncaughtException', (error) => {
 
 // Initialize Discord Client with minimal required intents
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.MessageContent,
+  ],
 });
 
 // Command registry collection

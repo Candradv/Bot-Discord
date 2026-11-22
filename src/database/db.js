@@ -189,6 +189,12 @@ const stmtUpdateMessage = db.prepare(`
   WHERE id = ?
 `);
 
+const stmtUpdateScreenshot = db.prepare(`
+  UPDATE appeals
+  SET screenshot_url = ?, updated_at = ?
+  WHERE id = ?
+`);
+
 const stmtDeleteUnsentAppeal = db.prepare(`
   DELETE FROM appeals
   WHERE id = ? AND status = 'PENDING_REVIEW' AND channel_id IS NULL AND message_id IS NULL
@@ -345,6 +351,12 @@ function updateAppealMessage(id, channelId, messageId) {
   return stmtGetById.get(id);
 }
 
+function updateAppealScreenshot(id, screenshotUrl) {
+  const now = Date.now();
+  stmtUpdateScreenshot.run(screenshotUrl, now, id);
+  return stmtGetById.get(id);
+}
+
 function deleteUnsentAppeal(id) {
   return stmtDeleteUnsentAppeal.run(id).changes > 0;
 }
@@ -484,6 +496,7 @@ module.exports = {
   unblockAppealUser,
   createAppeal,
   updateAppealMessage,
+  updateAppealScreenshot,
   deleteUnsentAppeal,
   reviewAppeal,
   getAppealById,
