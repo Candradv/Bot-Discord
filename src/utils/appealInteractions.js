@@ -422,7 +422,7 @@ async function handleAppealButton(interaction) {
         '**3. Guild Raid**\n' +
         'Members are expected to participate in Guild Raids.\n\n' +
         '**4. Boss Raid Schedule**\n' +
-        'Boss Raids take place four times a day:\n' +
+        'Boss Raids take place four times a day (Western Indonesia Time / WIB):\n' +
         '• 06.30 — Morning Raid\n' +
         '• 12.30 — Afternoon Raid\n' +
         '• 18.30 — Evening Raid\n' +

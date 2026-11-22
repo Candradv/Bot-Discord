@@ -115,10 +115,11 @@ async function run20MandatoryTests() {
   const rule2 = rulesDesc.includes('2. Daily Donation');
   const rule3 = rulesDesc.includes('3. Guild Raid');
   const rule4 = rulesDesc.includes('4. Boss Raid Schedule');
+  const raidTimesUseWib = rulesDesc.includes('Western Indonesia Time / WIB');
   const rule5 = rulesDesc.includes('5. Minimum GS Requirement');
   const rule6 = rulesDesc.includes('6. Activity Requirement');
-  console.log('   Contains 6 rules:', rule1 && rule2 && rule3 && rule4 && rule5 && rule6);
-  if (!(rule1 && rule2 && rule3 && rule4 && rule5 && rule6)) throw new Error('Test 3 Failed');
+  console.log('   Contains 6 rules and WIB timezone:', rule1 && rule2 && rule3 && rule4 && raidTimesUseWib && rule5 && rule6);
+  if (!(rule1 && rule2 && rule3 && rule4 && raidTimesUseWib && rule5 && rule6)) throw new Error('Test 3 Failed');
 
   let formModal = null;
   await appealInteractions.handleAppealButton({
