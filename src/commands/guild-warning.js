@@ -31,6 +31,12 @@ module.exports = {
         .setDescription('Catatan tambahan untuk member (opsional)')
         .setMaxLength(700)
         .setRequired(false),
+    )
+    .addBooleanOption((option) =>
+      option
+        .setName('kirim_dm')
+        .setDescription('Kirim surat peringatan kepada member melalui DM (default: ya)')
+        .setRequired(false),
     ),
 
   async execute(interaction, client) {
@@ -51,6 +57,16 @@ module.exports = {
     const member = interaction.options.getUser('member');
     const requirement = interaction.options.getString('requirement');
     const note = interaction.options.getString('catatan')?.trim();
+    const dmOption = interaction.options.getBoolean('kirim_dm');
+    const shouldSendDm = dmOption === null ? true : dmOption;
+
+    if (!interaction.options.getMember('member')) {
+      return interaction.reply({
+        content: 'Pilih member yang masih berada di server ini.',
+        ephemeral: true,
+      });
+    }
+
     if (member.bot) {
       return interaction.reply({
         content: 'Pilih akun member, bukan bot.',
@@ -68,7 +84,14 @@ module.exports = {
 
     await interaction.deferReply({ ephemeral: true });
 
-    const dmSent = await sendWarningDm(client, member.id, warningMessage, interaction.user.tag);
+    const dmSent = shouldSendDm
+      ? await sendWarningDm(client, member.id, warningMessage, interaction.user.tag)
+      : false;
+    const dmStatus = !shouldSendDm
+      ? '⏭️ Tidak dipilih'
+      : dmSent
+        ? '✅ Terkirim'
+        : '❌ Gagal (DM tertutup)';
     await sendAppealLog(client, {
       title: '📄 Surat Peringatan Guild',
       color: 0xe67e22,
@@ -76,14 +99,16 @@ module.exports = {
         { name: '👤 Member', value: `<@${member.id}> (${member.tag})`, inline: true },
         { name: '📋 Persyaratan', value: requirement, inline: true },
         { name: '🛡️ Dikirim Oleh', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: false },
-        { name: '📩 Status DM', value: dmSent ? '✅ Terkirim' : '❌ Gagal (DM tertutup)', inline: false },
+        { name: '📩 Status DM', value: dmStatus, inline: false },
       ],
     });
 
     return interaction.editReply({
-      content: dmSent
-        ? `✅ Surat peringatan untuk **${member.tag}** berhasil dikirim via DM.`
-        : `⚠️ Surat peringatan dicatat, tetapi DM ke **${member.tag}** gagal dikirim (mungkin DM tertutup).`,
+      content: !shouldSendDm
+        ? `✅ Peringatan untuk **${member.tag}** dicatat. DM tidak dikirim sesuai pilihan.`
+        : dmSent
+          ? `✅ Surat peringatan untuk **${member.tag}** berhasil dikirim via DM.`
+          : `⚠️ Surat peringatan dicatat, tetapi DM ke **${member.tag}** gagal dikirim (mungkin DM tertutup).`,
     });
   },
 };

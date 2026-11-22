@@ -229,6 +229,38 @@ async function run20MandatoryTests() {
   if (!underReviewUpdate?.content.includes('Under Review')) {
     throw new Error('Manage menu could not keep an appeal under review');
   }
+  let denialVerificationPrompt = null;
+  await appealInteractions.handleStaffReviewButton({
+    customId: `appeal_select_status_${app1.id}`,
+    values: ['REJECT'],
+    member: mockStaffMember,
+    guild: { ownerId: 'owner-id' },
+    user: { id: 'staff-user-1', tag: 'StaffOne#0001' },
+    update: async (payload) => {
+      denialVerificationPrompt = payload;
+    },
+  });
+  const denialButtons = denialVerificationPrompt.components.flatMap((row) => row.components);
+  if (
+    !denialVerificationPrompt.content.includes('manually verifying') ||
+    !denialButtons.some((button) => button.data.custom_id === `appeal_btn_reject_mismatch_${app1.id}`) ||
+    !denialButtons.some((button) => button.data.custom_id === `appeal_btn_reject_other_${app1.id}`)
+  ) {
+    throw new Error('Staff denial flow does not require an explicit GS verification outcome');
+  }
+  let mismatchModalId = '';
+  await appealInteractions.handleStaffReviewButton({
+    customId: `appeal_btn_reject_mismatch_${app1.id}`,
+    member: mockStaffMember,
+    guild: { ownerId: 'owner-id' },
+    user: { id: 'staff-user-1', tag: 'StaffOne#0001' },
+    showModal: async (modal) => {
+      mismatchModalId = modal.toJSON().custom_id;
+    },
+  });
+  if (mismatchModalId !== `appeal_modal_reject_${app1.id}_mismatch`) {
+    throw new Error('Verified GS mismatch selection did not reach the permanent-block denial flow');
+  }
 
   let warningDelivered = false;
   const warningClient = {
@@ -251,7 +283,9 @@ async function run20MandatoryTests() {
     user: { id: 'staff-user-1', tag: 'StaffOne#0001' },
     options: {
       getUser: () => ({ id: 'member-to-warn', tag: 'Member#0001', bot: false }),
+      getMember: () => ({ id: 'member-to-warn' }),
       getString: (name) => (name === 'requirement' ? 'Weekly Guild XP' : 'Progres mulai mendekati batas.'),
+      getBoolean: () => null,
     },
     deferReply: async () => {},
     editReply: async (payload) => {
@@ -260,6 +294,56 @@ async function run20MandatoryTests() {
   }, warningClient);
   if (!warningDelivered || !warningReply.includes('berhasil dikirim')) {
     throw new Error('Guild warning command failed');
+  }
+
+  let noDmWasSent = true;
+  let noDmReply = '';
+  await guildWarning.execute({
+    inGuild: () => true,
+    member: mockStaffMember,
+    guild: { ownerId: 'owner-id' },
+    user: { id: 'staff-user-1', tag: 'StaffOne#0001' },
+    options: {
+      getUser: () => ({ id: 'member-to-warn', tag: 'Member#0001', bot: false }),
+      getMember: () => ({ id: 'member-to-warn' }),
+      getString: (name) => (name === 'requirement' ? 'Activity Requirement' : null),
+      getBoolean: () => false,
+    },
+    deferReply: async () => {},
+    editReply: async (payload) => {
+      noDmReply = payload.content;
+    },
+  }, {
+    users: {
+      fetch: async () => {
+        noDmWasSent = false;
+        throw new Error('DM should not be attempted when disabled');
+      },
+    },
+    channels: { fetch: async () => null },
+  });
+  if (!noDmWasSent || !noDmReply.includes('DM tidak dikirim')) {
+    throw new Error('Guild warning DM opt-out failed');
+  }
+
+  let nonMemberReply = '';
+  await guildWarning.execute({
+    inGuild: () => true,
+    member: mockStaffMember,
+    guild: { ownerId: 'owner-id' },
+    user: { id: 'staff-user-1', tag: 'StaffOne#0001' },
+    options: {
+      getUser: () => ({ id: 'not-in-server', tag: 'Guest#0001', bot: false }),
+      getMember: () => null,
+      getString: () => null,
+      getBoolean: () => true,
+    },
+    reply: async (payload) => {
+      nonMemberReply = payload.content;
+    },
+  }, {});
+  if (!nonMemberReply.includes('masih berada di server')) {
+    throw new Error('Guild warning accepted a user who is not a server member');
   }
 
   // ----------------------------------------------------
@@ -415,6 +499,73 @@ async function run20MandatoryTests() {
     throw new Error('Test 14 Failed');
   }
 
+  const cooldownAppeal = db.createAppeal({
+    userId: 'user-cooldown-test',
+    userTag: 'Cooldown#0001',
+    robloxUsername: 'CooldownPlayer',
+    gearScore: 7000,
+  });
+  db.reviewAppeal(cooldownAppeal.id, 'REJECTED', 'staff-user-1', 'Test denial');
+  db.db.prepare('UPDATE appeals SET created_at = ?, reviewed_at = ? WHERE id = ?')
+    .run(Date.now() - (5 * 24 * 60 * 60 * 1000), Date.now() - (1 * 24 * 60 * 60 * 1000), cooldownAppeal.id);
+  let cooldownNotice = '';
+  await appealInteractions.handleAppealModal({
+    customId: 'appeal_modal_form',
+    user: { id: 'user-cooldown-test', username: 'Cooldown', tag: 'Cooldown#0001' },
+    guild: { ownerId: 'server-owner-id' },
+    fields: {
+      getTextInputValue: (field) => ({
+        appeal_input_roblox_username: 'CooldownPlayer',
+        appeal_input_gear_score: '7000',
+        appeal_input_alasan: 'I would like to apply again.',
+        appeal_input_roblox_experience: '2 years on Roblox',
+      })[field] || '',
+    },
+    deferReply: async () => {},
+    editReply: async (payload) => {
+      cooldownNotice = payload.content;
+    },
+  });
+  if (!cooldownNotice.includes('2-day cooldown')) {
+    throw new Error('Cooldown was not measured from the denial decision time');
+  }
+
+  const expiredCooldownAppeal = db.createAppeal({
+    userId: 'user-cooldown-expired',
+    userTag: 'Ready#0001',
+    robloxUsername: 'ReadyPlayer',
+    gearScore: 7000,
+  });
+  db.reviewAppeal(expiredCooldownAppeal.id, 'REJECTED', 'staff-user-1', 'Test denial');
+  db.db.prepare('UPDATE appeals SET created_at = ?, reviewed_at = ? WHERE id = ?')
+    .run(Date.now() - (4 * 24 * 60 * 60 * 1000), Date.now() - (3 * 24 * 60 * 60 * 1000), expiredCooldownAppeal.id);
+  let appealAfterCooldownSent = false;
+  await appealInteractions.handleAppealModal({
+    customId: 'appeal_modal_form',
+    user: { id: 'user-cooldown-expired', username: 'Ready', tag: 'Ready#0001' },
+    guild: { ownerId: 'server-owner-id' },
+    client: {
+      channels: {
+        fetch: async (id) => (id === config.guildAppealChannelId ? mockStaffChan : null),
+      },
+    },
+    fields: {
+      getTextInputValue: (field) => ({
+        appeal_input_roblox_username: 'ReadyPlayer',
+        appeal_input_gear_score: '7000',
+        appeal_input_alasan: 'I would like to apply again.',
+        appeal_input_roblox_experience: '2 years on Roblox',
+      })[field] || '',
+    },
+    deferReply: async () => {},
+    editReply: async (payload) => {
+      appealAfterCooldownSent = Boolean(payload.embeds);
+    },
+  });
+  if (!appealAfterCooldownSent) {
+    throw new Error('Applicant could not reapply after the two-day cooldown elapsed');
+  }
+
   console.log('\nTEST: Owner dapat mengajukan ulang tanpa menunggu cooldown');
   let ownerResubmissionSent = false;
   const ownerMember = {
@@ -483,24 +634,24 @@ async function run20MandatoryTests() {
     userId: 'user-low-gs',
     userTag: 'LowGs#0001',
     robloxUsername: 'LowGearPlayer',
-    gearScore: 5500,
+    gearScore: 7000,
     reason: 'I want to join the guild.',
   });
-  let lowGsRejected = false;
+  let mismatchRejected = false;
   await appealInteractions.handleStaffRejectModal({
-    customId: `appeal_modal_reject_${lowGsAppeal.id}`,
+    customId: `appeal_modal_reject_${lowGsAppeal.id}_mismatch`,
     member: mockStaffMember,
     guild: { ownerId: 'owner-id' },
     user: { id: 'staff-user-1', tag: 'StaffOne#0001' },
     client: mockClient,
-    fields: { getTextInputValue: () => 'Gear Score is below the 6,000 minimum.' },
+    fields: { getTextInputValue: () => 'Staff verified the actual GS does not match the submitted value.' },
     deferReply: async () => {},
     editReply: async (payload) => {
-      lowGsRejected = payload.content.includes('permanently blocked');
+      mismatchRejected = payload.content.includes('actual GS did not match');
     },
   });
-  if (!lowGsRejected || db.getAppealById(lowGsAppeal.id).permanent_block !== 1) {
-    throw new Error('Low Gear Score denial did not create a permanent appeal block');
+  if (!mismatchRejected || db.getAppealById(lowGsAppeal.id).permanent_block !== 1) {
+    throw new Error('Manually verified Gear Score mismatch did not create a permanent appeal block');
   }
 
   let permanentBlockMessage = '';
@@ -514,6 +665,27 @@ async function run20MandatoryTests() {
   });
   if (!permanentBlockMessage.includes('permanently blocked')) {
     throw new Error('Permanently blocked user was allowed to start another appeal');
+  }
+
+  const accurateLowGsAppeal = db.createAppeal({
+    userId: 'user-accurate-low-gs',
+    userTag: 'Accurate#0001',
+    robloxUsername: 'AccurateLowGs',
+    gearScore: 5500,
+    reason: 'My current Gear Score is below the guild requirement.',
+  });
+  await appealInteractions.handleStaffRejectModal({
+    customId: `appeal_modal_reject_${accurateLowGsAppeal.id}_other`,
+    member: mockStaffMember,
+    guild: { ownerId: 'owner-id' },
+    user: { id: 'staff-user-1', tag: 'StaffOne#0001' },
+    client: mockClient,
+    fields: { getTextInputValue: () => 'The submitted score was verified as accurate but is below the requirement.' },
+    deferReply: async () => {},
+    editReply: async () => {},
+  });
+  if (db.getAppealById(accurateLowGsAppeal.id).permanent_block !== 0) {
+    throw new Error('Accurate low Gear Score denial incorrectly created a permanent block');
   }
 
   // ----------------------------------------------------

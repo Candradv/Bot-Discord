@@ -178,7 +178,7 @@ function buildStaffEmbed(appeal, voteCounts = null) {
   if (appeal.permanent_block) {
     fields.push({
       name: '⛔ Future Appeals',
-      value: 'Permanently blocked because the appeal was denied with a Gear Score below the minimum.',
+      value: 'Permanently blocked after staff verified that the actual Gear Score did not match the submitted value.',
       inline: false,
     });
   }
@@ -302,7 +302,7 @@ async function sendApplicantDm(client, userId, appeal, decision, reason = null) 
           'Thank you for your interest in joining our guild.\n\n' +
           'You may contact the staff if you need clarification.' +
           (appeal.permanent_block
-            ? '\n\n⛔ Your submitted Gear Score was below 6,000. You are permanently blocked from submitting future appeals.'
+            ? '\n\n⛔ Staff verified that your actual Gear Score did not match the value in your application. You are permanently blocked from submitting future appeals.'
             : '')
         )
         .setColor(0xe74c3c)
@@ -423,7 +423,7 @@ async function handleAppealButton(interaction) {
     const permanentBlock = db.getPermanentAppealBlockByUser(interaction.user.id);
     if (permanentBlock) {
       return interaction.reply({
-        content: '⛔ You are permanently blocked from submitting future appeals because a previous appeal was denied for Gear Score below the minimum.',
+        content: '⛔ You are permanently blocked from submitting future appeals because staff verified that your actual Gear Score did not match your submitted value.',
         ephemeral: true,
       });
     }
@@ -456,7 +456,7 @@ async function handleAppealButton(interaction) {
         'Applicants must have at least 6,000 Gear Score (GS).\n\n' +
         '**6. Activity Requirement**\n' +
         'Members must not be inactive for more than 3 consecutive days without notifying the Owner.\n\n' +
-        '⛔ **Important:** If your GS is below 6,000 and staff denies your appeal, you will be permanently blocked from submitting future appeals.\n\n' +
+        '⛔ **Important:** Staff will manually verify your actual Gear Score. If it does not match the value in your application and your appeal is denied for this mismatch, you will be permanently blocked from submitting future appeals.\n\n' +
         '⚠️ **Do you agree to these requirements and commit to following them?**'
       )
       .setColor(0xf1c40f)
@@ -496,7 +496,7 @@ async function handleAppealButton(interaction) {
     const permanentBlock = db.getPermanentAppealBlockByUser(interaction.user.id);
     if (permanentBlock) {
       return interaction.reply({
-        content: '⛔ You are permanently blocked from submitting future appeals because a previous appeal was denied for Gear Score below the minimum.',
+        content: '⛔ You are permanently blocked from submitting future appeals because staff verified that your actual Gear Score did not match your submitted value.',
         ephemeral: true,
       });
     }
@@ -537,7 +537,7 @@ async function handleAppealModal(interaction) {
     const permanentBlock = db.getPermanentAppealBlockByUser(interaction.user.id);
     if (permanentBlock) {
       return interaction.editReply({
-        content: '⛔ You are permanently blocked from submitting future appeals because a previous appeal was denied for Gear Score below the minimum.',
+        content: '⛔ You are permanently blocked from submitting future appeals because staff verified that your actual Gear Score did not match your submitted value.',
       });
     }
 
@@ -554,9 +554,10 @@ async function handleAppealModal(interaction) {
     const COOLDOWN_MS = 2 * 24 * 60 * 60 * 1000;
     const latestAppeal = db.getLatestAppealByUser(interaction.user.id);
     if (!isOwner && latestAppeal && latestAppeal.status !== 'PENDING_REVIEW') {
-      const elapsed = Date.now() - latestAppeal.created_at;
+      const cooldownStartsAt = latestAppeal.reviewed_at || latestAppeal.created_at;
+      const elapsed = Date.now() - cooldownStartsAt;
       if (elapsed < COOLDOWN_MS) {
-        const cooldownEndsAt = Math.floor((latestAppeal.created_at + COOLDOWN_MS) / 1000);
+        const cooldownEndsAt = Math.floor((cooldownStartsAt + COOLDOWN_MS) / 1000);
         return interaction.editReply({
           content: `⏳ You are on a **2-day cooldown** after your last appeal.\nYou can submit again <t:${cooldownEndsAt}:R> (<t:${cooldownEndsAt}:f>).`,
         });
@@ -676,7 +677,7 @@ async function handleAppealModal(interaction) {
         `• **Gear Score:** ${gearScore.toLocaleString('en-US')} GS\n\n` +
         `• **Roblox / The Forge Playtime:** ${robloxExperience}\n\n` +
         'Your appeal has been sent to the community review and voting channel.\n\n' +
-        `⛔ **Important:** If your GS is below ${MINIMUM_GEAR_SCORE.toLocaleString('en-US')} and staff denies your appeal, you will be permanently blocked from submitting future appeals.\n\n` +
+        '⛔ **Important:** Staff will manually verify your actual Gear Score. If it does not match the value in your application and your appeal is denied for this mismatch, you will be permanently blocked from submitting future appeals.\n\n' +
         '📌 You cannot submit another appeal while this one is under review.'
       )
       .setColor(0x2ecc71)
@@ -788,6 +789,12 @@ async function handleStaffReviewButton(interaction) {
   } else if (customId.startsWith('appeal_btn_approve_')) {
     action = 'APPROVE';
     appealId = Number(customId.replace('appeal_btn_approve_', ''));
+  } else if (customId.startsWith('appeal_btn_reject_mismatch_')) {
+    action = 'REJECT_MISMATCH';
+    appealId = Number(customId.replace('appeal_btn_reject_mismatch_', ''));
+  } else if (customId.startsWith('appeal_btn_reject_other_')) {
+    action = 'REJECT_OTHER';
+    appealId = Number(customId.replace('appeal_btn_reject_other_', ''));
   } else if (customId.startsWith('appeal_btn_reject_')) {
     action = 'REJECT';
     appealId = Number(customId.replace('appeal_btn_reject_', ''));
@@ -811,7 +818,7 @@ async function handleStaffReviewButton(interaction) {
     });
   }
 
-  if (!['MANAGE', 'UNDER_REVIEW', 'APPROVE', 'REJECT', 'WARN'].includes(action)) {
+  if (!['MANAGE', 'UNDER_REVIEW', 'APPROVE', 'REJECT', 'REJECT_MISMATCH', 'REJECT_OTHER', 'WARN'].includes(action)) {
     return interaction.reply({
       content: '❌ Aksi pengelolaan status tidak valid.',
       ephemeral: true,
@@ -905,17 +912,42 @@ async function handleStaffReviewButton(interaction) {
     return isStatusMenu ? interaction.editReply(response) : interaction.followUp({ ...response, ephemeral: true });
   }
 
-  // 3. Aksi REJECT: Tampilkan Modal Alasan Penolakan
+  // 3. Aksi REJECT: Staff memilih apakah penolakan berdasarkan mismatch GS yang sudah diverifikasi
   if (action === 'REJECT') {
+    const verificationRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`appeal_btn_reject_mismatch_${appealId}`)
+        .setLabel('Verified GS mismatch — permanent block')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId(`appeal_btn_reject_other_${appealId}`)
+        .setLabel('Other denial — no permanent block')
+        .setStyle(ButtonStyle.Secondary),
+    );
+    const verificationPrompt = {
+      content:
+        `Compare the submitted Gear Score (**${appeal.gear_score ?? 'Not provided'} GS**) with the member's actual in-game GS. ` +
+        'Select a mismatch only after manually verifying it.',
+      components: [verificationRow],
+    };
+
+    return isStatusMenu
+      ? interaction.update(verificationPrompt)
+      : interaction.reply({ ...verificationPrompt, ephemeral: true });
+  }
+
+  // 4. Open the denial-reason modal after the staff selects a verified outcome.
+  if (action === 'REJECT_MISMATCH' || action === 'REJECT_OTHER') {
+    const outcome = action === 'REJECT_MISMATCH' ? 'mismatch' : 'other';
     const rejectModal = new ModalBuilder()
-      .setCustomId(`appeal_modal_reject_${appealId}`)
+      .setCustomId(`appeal_modal_reject_${appealId}_${outcome}`)
       .setTitle(`Deny Appeal ${appeal.appeal_code}`);
 
     const reasonInput = new TextInputBuilder()
       .setCustomId('appeal_input_reject_reason')
       .setLabel('Reason for Denial')
       .setStyle(TextInputStyle.Paragraph)
-      .setPlaceholder('Explain the denial. GS below 6,000 permanently blocks future appeals.')
+      .setPlaceholder('Explain the denial. Permanent block applies only to a manually verified GS mismatch.')
       .setMinLength(5)
       .setMaxLength(1000)
       .setRequired(true);
@@ -959,7 +991,8 @@ async function handleStaffRejectModal(interaction) {
 
   await interaction.deferReply({ ephemeral: true });
 
-  const appealId = Number(customId.replace('appeal_modal_reject_', ''));
+  const modalMatch = customId.match(/^appeal_modal_reject_(\d+)(?:_(mismatch|other))?$/);
+  const appealId = Number(modalMatch?.[1]);
   const rejectionReason = interaction.fields.getTextInputValue('appeal_input_reject_reason');
 
   if (!appealId || isNaN(appealId)) {
@@ -971,10 +1004,7 @@ async function handleStaffRejectModal(interaction) {
     return interaction.editReply({ content: '❌ Appeal data could not be found.' });
   }
 
-  const permanentlyBlock =
-    appeal.gear_score !== null &&
-    appeal.gear_score !== undefined &&
-    Number(appeal.gear_score) < MINIMUM_GEAR_SCORE;
+  const permanentlyBlock = modalMatch?.[2] === 'mismatch';
   const reviewResult = db.reviewAppeal(appealId, 'REJECTED', user.id, rejectionReason, permanentlyBlock);
   if (!reviewResult.success) {
     return interaction.editReply({
@@ -1026,7 +1056,7 @@ async function handleStaffRejectModal(interaction) {
 
   return interaction.editReply({
     content: updatedAppeal.permanent_block
-      ? `❌ Appeal **${updatedAppeal.appeal_code}** denied. Because the submitted GS was below 6,000, this user is permanently blocked from submitting future appeals.`
+      ? `❌ Appeal **${updatedAppeal.appeal_code}** denied. Staff verified that the actual GS did not match the submitted value, so this user is permanently blocked from submitting future appeals.`
       : `❌ Appeal **${updatedAppeal.appeal_code}** (${updatedAppeal.roblox_username || updatedAppeal.ign}) has been denied.`,
   });
 }
