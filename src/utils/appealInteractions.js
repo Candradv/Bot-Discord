@@ -32,6 +32,13 @@ function isStaff(member, guild) {
   return false;
 }
 
+function isAppealOwner(interaction) {
+  return (
+    interaction.guild?.ownerId === interaction.user.id ||
+    (config.ownerRoleId && interaction.member?.roles?.cache?.has(config.ownerRoleId))
+  );
+}
+
 /**
  * Menghitung Member Rating berdasarkan usia akun Discord dan durasi di server
  */
@@ -422,7 +429,7 @@ async function handleAppealButton(interaction) {
     }
 
     const existingActive = db.getActiveAppealByUser(interaction.user.id);
-    if (existingActive) {
+    if (existingActive && !isAppealOwner(interaction)) {
       return interaction.reply({
         content: `⚠️ You already have an active appeal under review (**${existingActive.appeal_code}**). Please wait for the staff decision before submitting another.`,
         ephemeral: true,
@@ -495,7 +502,7 @@ async function handleAppealButton(interaction) {
     }
 
     const existingActive = db.getActiveAppealByUser(interaction.user.id);
-    if (existingActive) {
+    if (existingActive && !isAppealOwner(interaction)) {
       return interaction.reply({
         content: `⚠️ You already have an active appeal under review (**${existingActive.appeal_code}**).`,
         ephemeral: true,
@@ -535,8 +542,9 @@ async function handleAppealModal(interaction) {
     }
 
     // Prevent multiple active appeals
+    const isOwner = isAppealOwner(interaction);
     const existingActive = db.getActiveAppealByUser(interaction.user.id);
-    if (existingActive) {
+    if (existingActive && !isOwner) {
       return interaction.editReply({
         content: `⚠️ You already have an active appeal under review (**${existingActive.appeal_code}**). Please wait for the staff decision before submitting another.`,
       });
@@ -545,9 +553,6 @@ async function handleAppealModal(interaction) {
     // Two-day cooldown after the latest final decision; Owners bypass this for testing.
     const COOLDOWN_MS = 2 * 24 * 60 * 60 * 1000;
     const latestAppeal = db.getLatestAppealByUser(interaction.user.id);
-    const isOwner =
-      interaction.guild?.ownerId === interaction.user.id ||
-      (config.ownerRoleId && interaction.member?.roles?.cache?.has(config.ownerRoleId));
     if (!isOwner && latestAppeal && latestAppeal.status !== 'PENDING_REVIEW') {
       const elapsed = Date.now() - latestAppeal.created_at;
       if (elapsed < COOLDOWN_MS) {

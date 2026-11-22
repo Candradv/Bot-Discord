@@ -423,6 +423,36 @@ async function run20MandatoryTests() {
     roles: { cache: new Map([['owner-role-123', { id: 'owner-role-123' }]]) },
     permissions: { has: () => false },
   };
+  db.createAppeal({
+    userId: 'user-closed-dm',
+    userTag: 'Closed#0001',
+    robloxUsername: 'ExistingOwnerTest',
+    gearScore: 7000,
+  });
+  let ownerRulesShown = false;
+  await appealInteractions.handleAppealButton({
+    customId: 'appeal_btn_start',
+    user: { id: 'user-closed-dm' },
+    member: ownerMember,
+    guild: { ownerId: 'server-owner-id' },
+    reply: async (payload) => {
+      ownerRulesShown = Boolean(payload.embeds);
+    },
+  });
+  if (!ownerRulesShown) throw new Error('Owner could not start a new appeal while another is pending');
+
+  let ownerModalShown = false;
+  await appealInteractions.handleAppealButton({
+    customId: 'appeal_btn_rules_agree',
+    user: { id: 'user-closed-dm' },
+    member: ownerMember,
+    guild: { ownerId: 'server-owner-id' },
+    showModal: async () => {
+      ownerModalShown = true;
+    },
+  });
+  if (!ownerModalShown) throw new Error('Owner could not open a new appeal form while another is pending');
+
   await appealInteractions.handleAppealModal({
     customId: 'appeal_modal_form',
     user: { id: 'user-closed-dm', username: 'ClosedDmUser', tag: 'ClosedDmUser#0001' },
