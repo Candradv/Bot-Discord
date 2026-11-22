@@ -1,4 +1,5 @@
 const { Events } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 const db = require('../database/db');
 const logger = require('../utils/logger');
 const {
@@ -35,6 +36,22 @@ module.exports = {
         await staffMessage.edit({
           embeds: [buildStaffEmbed(updatedAppeal, voteCounts)],
           components: buildAppealActionRows(updatedAppeal.id, voteCounts, false),
+        });
+
+        const proofEmbed = new EmbedBuilder()
+          .setTitle(`📸 Gear Score Proof — ${updatedAppeal.appeal_code}`)
+          .setDescription(
+            `Applicant: <@${updatedAppeal.user_id}>\n` +
+            `Submitted Gear Score: **${updatedAppeal.gear_score?.toLocaleString('en-US') || 'Not provided'} GS**`
+          )
+          .setImage(imageAttachment.url)
+          .setColor(0xf1c40f)
+          .setFooter({ text: `Appeal ID: ${updatedAppeal.appeal_code}` })
+          .setTimestamp();
+
+        await channel.send({
+          content: `⚔️ Gear Score screenshot received for <@${updatedAppeal.user_id}>.`,
+          embeds: [proofEmbed],
         });
 
         await message.reply(
