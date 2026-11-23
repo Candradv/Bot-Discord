@@ -272,7 +272,7 @@ async function run20MandatoryTests() {
         send: async (payload) => {
           warningDelivered =
             payload.embeds[0].data.description.includes('Weekly Guild XP') &&
-            payload.embeds[0].data.description.toLowerCase().includes('kick tidak dilakukan otomatis');
+            payload.embeds[0].data.description.toLowerCase().includes('bot does not kick members automatically');
         },
       }),
     },
@@ -295,7 +295,7 @@ async function run20MandatoryTests() {
       warningReply = payload.content;
     },
   }, warningClient);
-  if (!warningDelivered || !warningReply.includes('berhasil dikirim')) {
+  if (!warningDelivered || !warningReply.includes('was sent via DM')) {
     throw new Error('Guild warning command failed');
   }
 
@@ -325,7 +325,7 @@ async function run20MandatoryTests() {
     },
     channels: { fetch: async () => null },
   });
-  if (!noDmWasSent || !noDmReply.includes('DM tidak dikirim')) {
+  if (!noDmWasSent || !noDmReply.includes('DM was skipped')) {
     throw new Error('Guild warning DM opt-out failed');
   }
 
@@ -345,7 +345,7 @@ async function run20MandatoryTests() {
       nonMemberReply = payload.content;
     },
   }, {});
-  if (!nonMemberReply.includes('masih berada di server')) {
+  if (!nonMemberReply.includes('currently in this server')) {
     throw new Error('Guild warning accepted a user who is not a server member');
   }
 

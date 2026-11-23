@@ -3,39 +3,39 @@ const { isStaff, sendWarningDm } = require('../utils/appealInteractions');
 const { sendAppealLog } = require('../utils/appealLogger');
 
 const REQUIREMENTS = [
-  { name: 'Weekly Guild XP (minimum 5.000/minggu)', value: 'Weekly Guild XP' },
+  { name: 'Weekly Guild XP (minimum 5,000/week)', value: 'Weekly Guild XP' },
   { name: 'Daily Donation', value: 'Daily Donation' },
   { name: 'Guild Raid', value: 'Guild Raid' },
   { name: 'Boss Raid Schedule', value: 'Boss Raid Schedule' },
-  { name: 'Minimum GS (6.000+)', value: 'Minimum GS Requirement' },
-  { name: 'Activity (maksimal 3 hari offline)', value: 'Activity Requirement' },
+  { name: 'Minimum GS (6,000+)', value: 'Minimum GS Requirement' },
+  { name: 'Activity (maximum 3 days offline)', value: 'Activity Requirement' },
 ];
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('guild-warning')
-    .setDescription('Kirim peringatan persyaratan guild kepada member')
+    .setDescription('Send a guild requirement warning to a member')
     .addUserOption((option) =>
-      option.setName('member').setDescription('Member yang perlu diperingatkan').setRequired(true),
+      option.setName('member').setDescription('Member to warn').setRequired(true),
     )
     .addStringOption((option) =>
       option
         .setName('requirement')
-        .setDescription('Persyaratan guild yang perlu diperhatikan')
+        .setDescription('Guild requirement that needs attention')
         .setRequired(true)
         .addChoices(...REQUIREMENTS),
     )
     .addStringOption((option) =>
       option
         .setName('catatan')
-        .setDescription('Catatan tambahan untuk member (opsional)')
+        .setDescription('Additional staff note (optional)')
         .setMaxLength(700)
         .setRequired(false),
     )
     .addBooleanOption((option) =>
       option
         .setName('kirim_dm')
-        .setDescription('Kirim surat peringatan kepada member melalui DM (default: ya)')
+        .setDescription('Send the warning to the member by DM (default: yes)')
         .setRequired(false),
     ),
 
@@ -62,25 +62,24 @@ module.exports = {
 
     if (!interaction.options.getMember('member')) {
       return interaction.reply({
-        content: 'Pilih member yang masih berada di server ini.',
+        content: 'Select a member who is currently in this server.',
         ephemeral: true,
       });
     }
 
     if (member.bot) {
       return interaction.reply({
-        content: 'Pilih akun member, bukan bot.',
+        content: 'Select a member account, not a bot.',
         ephemeral: true,
       });
     }
 
     const warningMessage =
-      `**Persyaratan yang perlu diperhatikan:** ${requirement}.\n\n` +
-      'Progres Anda sudah mendekati batas minimum persyaratan guild. Ini merupakan surat peringatan resmi; ' +
-      'mohon segera melakukan perbaikan. Jika ada kendala, segera hubungi staff guild.\n\n' +
-      'Jika pada evaluasi berikutnya persyaratan tetap tidak terpenuhi, staff dapat mengeluarkan (kick) Anda dari guild. ' +
-      'Kick tidak dilakukan otomatis oleh bot.' +
-      (note ? `\n\n**Catatan staff:** ${note}` : '');
+      `**Requirement:** ${requirement}\n\n` +
+      'Please improve your progress and meet this guild requirement as soon as possible. ' +
+      'Contact guild staff if you need help.\n\n' +
+      'Continued non-compliance may result in a guild kick. The bot does not kick members automatically.' +
+      (note ? `\n\n**Staff note:** ${note}` : '');
 
     await interaction.deferReply({ ephemeral: true });
 
@@ -88,27 +87,27 @@ module.exports = {
       ? await sendWarningDm(client, member.id, warningMessage, interaction.user.tag)
       : false;
     const dmStatus = !shouldSendDm
-      ? '⏭️ Tidak dipilih'
+      ? '⏭️ Skipped'
       : dmSent
-        ? '✅ Terkirim'
-        : '❌ Gagal (DM tertutup)';
+        ? '✅ Sent'
+        : '❌ Failed (DMs closed)';
     await sendAppealLog(client, {
-      title: '📄 Surat Peringatan Guild',
+      title: '📄 Guild Warning',
       color: 0xe67e22,
       fields: [
         { name: '👤 Member', value: `<@${member.id}> (${member.tag})`, inline: true },
-        { name: '📋 Persyaratan', value: requirement, inline: true },
-        { name: '🛡️ Dikirim Oleh', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: false },
-        { name: '📩 Status DM', value: dmStatus, inline: false },
+        { name: '📋 Requirement', value: requirement, inline: true },
+        { name: '🛡️ Sent By', value: `<@${interaction.user.id}> (${interaction.user.tag})`, inline: false },
+        { name: '📩 DM Status', value: dmStatus, inline: false },
       ],
     });
 
     return interaction.editReply({
       content: !shouldSendDm
-        ? `✅ Peringatan untuk **${member.tag}** dicatat. DM tidak dikirim sesuai pilihan.`
+        ? `✅ Warning for **${member.tag}** was recorded. DM was skipped.`
         : dmSent
-          ? `✅ Surat peringatan untuk **${member.tag}** berhasil dikirim via DM.`
-          : `⚠️ Surat peringatan dicatat, tetapi DM ke **${member.tag}** gagal dikirim (mungkin DM tertutup).`,
+          ? `✅ Warning for **${member.tag}** was sent via DM.`
+          : `⚠️ Warning was recorded, but the DM to **${member.tag}** failed (DMs may be closed).`,
     });
   },
 };

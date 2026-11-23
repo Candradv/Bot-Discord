@@ -363,14 +363,12 @@ async function sendWarningDm(client, userId, warningMessage, staffTag) {
     if (!user) return false;
 
     const warnEmbed = new EmbedBuilder()
-      .setTitle('📄 SURAT PERINGATAN GUILD')
+      .setTitle('📄 Guild Warning')
       .setDescription(
-        'Halo, member guild!\n\n' +
-        'Anda menerima peringatan dari staff guild.\n\n' +
-        '**Pesan Peringatan:**\n' +
+        'You received an official warning from guild staff.\n\n' +
+        '**Warning:**\n' +
         `${warningMessage}\n\n` +
-        `**Dikirim oleh:** ${staffTag}\n\n` +
-        'Mohon perhatikan peringatan ini dan penuhi persyaratan guild.'
+        `**Sent by:** ${staffTag}`
       )
       .setColor(0xe67e22)
       .setTimestamp();
@@ -999,13 +997,13 @@ async function handleStaffReviewButton(interaction) {
   if (action === 'WARN') {
     const warnModal = new ModalBuilder()
       .setCustomId(`appeal_modal_warn_${appealId}`)
-      .setTitle(`Kirim Warning #${appeal.appeal_code}`);
+      .setTitle(`Send Warning — ${appeal.appeal_code}`);
 
     const warnInput = new TextInputBuilder()
       .setCustomId('appeal_input_warn_message')
       .setLabel('Warning Message')
       .setStyle(TextInputStyle.Paragraph)
-      .setPlaceholder('Tuliskan pesan peringatan resmi yang akan dikirim via DM...')
+      .setPlaceholder('Write the official warning that will be sent via DM...')
       .setMinLength(5)
       .setMaxLength(1000)
       .setRequired(true);
