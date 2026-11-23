@@ -340,7 +340,7 @@ async function sendGearScoreScreenshotDm(client, userId, appeal) {
       .setDescription(
         `Please send a **clear screenshot/image of your Gear Score** for appeal **${appeal.appeal_code}**.\n\n` +
         'Staff will compare the image with the Gear Score value submitted in your application.\n\n' +
-        '**Reply directly to this DM** by uploading one PNG, JPG, JPEG, WEBP, or GIF image.'
+        '**Reply directly to this DM** with a screenshot of your current Gear Score. Accepted formats: PNG, JPG, JPEG, WEBP, or GIF.'
       )
       .setColor(0xf1c40f)
       .setFooter({ text: `Appeal ID: ${appeal.appeal_code}` })
@@ -487,7 +487,7 @@ async function handleAppealButton(interaction) {
         '• 18.30 — Evening Raid\n' +
         '• 19.30 — Night Raid\n\n' +
         '**5. Minimum GS Requirement**\n' +
-        'Applicants must have at least 6,000 Gear Score (GS).\n\n' +
+        'Applicants must have at least 6,000 Gear Score (GS). After submitting, reply to the bot DM with a clear screenshot of your current Gear Score.\n\n' +
         '**6. Activity Requirement**\n' +
         'Members must not be inactive for more than 3 consecutive days without notifying the Owner.\n\n' +
         '⛔ **Important:** Staff will manually verify your actual Gear Score. If it does not match the value in your application and your appeal is denied for this mismatch, you will be permanently blocked from submitting future appeals.\n\n' +
@@ -714,7 +714,7 @@ async function handleAppealModal(interaction) {
         `• **The Forge Play Schedule:** ${robloxExperience}\n\n` +
         'Your appeal has been sent to the community review and voting channel.\n\n' +
         (gearScoreDmSent
-          ? '📸 **Gear Score screenshot:** Check your DM and upload a clear image of your Gear Score for staff verification.\n\n'
+          ? '📸 **Gear Score screenshot:** Reply directly to the bot DM with a clear screenshot of your current Gear Score for staff verification.\n\n'
           : '📸 **Gear Score screenshot:** Please contact staff and send a clear image of your Gear Score because the bot could not send the DM request.\n\n') +
         '⛔ **Important:** Staff will manually verify your actual Gear Score. If it does not match the value in your application and your appeal is denied for this mismatch, you will be permanently blocked from submitting future appeals.\n\n' +
         '📌 You cannot submit another appeal while this one is under review.'

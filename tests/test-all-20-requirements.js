@@ -120,8 +120,9 @@ async function run20MandatoryTests() {
   const raidTimesUseWib = rulesDesc.includes('Western Indonesia Time / WIB');
   const rule5 = rulesDesc.includes('5. Minimum GS Requirement');
   const rule6 = rulesDesc.includes('6. Activity Requirement');
-  console.log('   Contains 6 rules and WIB timezone:', rule1 && rule2 && rule3 && rule4 && raidTimesUseWib && rule5 && rule6);
-  if (!(rule1 && rule2 && rule3 && rule4 && raidTimesUseWib && rule5 && rule6)) throw new Error('Test 3 Failed');
+  const gearScoreDmRule = rulesDesc.includes('reply to the bot DM') && rulesDesc.includes('clear screenshot');
+  console.log('   Contains 6 rules, WIB timezone, and Gear Score DM screenshot rule:', rule1 && rule2 && rule3 && rule4 && raidTimesUseWib && rule5 && rule6 && gearScoreDmRule);
+  if (!(rule1 && rule2 && rule3 && rule4 && raidTimesUseWib && rule5 && rule6 && gearScoreDmRule)) throw new Error('Test 3 Failed');
 
   let formModal = null;
   await appealInteractions.handleAppealButton({

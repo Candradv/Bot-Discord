@@ -97,6 +97,7 @@ module.exports = {
         '• Respectful communication and good sportsmanship.\n' +
         '• Compliance with guild and Discord server rules.\n' +
         '• A minimum Gear Score of 6,000.\n' +
+        '• Reply to the bot DM with a clear screenshot of your current Gear Score after submitting.\n' +
         '• Read and agree to the guild rules before submitting the form.\n\n' +
         '*Press the button below to review the rules and start your application.*'
       )
