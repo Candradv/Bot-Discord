@@ -92,7 +92,7 @@ function buildStaffEmbed(appeal, voteCounts = null) {
   const fields = [
     {
       name: '👤 Applicant',
-      value: `<@${appeal.user_id}> (${appeal.user_tag})\nID: \`${appeal.user_id}\``,
+      value: `<@${appeal.user_id}>${appeal.member_rating ? `\nRating: ${appeal.member_rating}` : ''}`,
       inline: true,
     },
     {
@@ -110,8 +110,8 @@ function buildStaffEmbed(appeal, voteCounts = null) {
     {
       name: '📸 Gear Score Proof',
       value: appeal.screenshot_url
-        ? 'Image received via DM — compare it with the submitted GS.'
-        : 'Waiting for the applicant to send the Gear Score screenshot via DM.',
+        ? '✅ Screenshot received'
+        : '⏳ Waiting for screenshot',
       inline: true,
     },
     {
@@ -130,7 +130,7 @@ function buildStaffEmbed(appeal, voteCounts = null) {
   const extraInfo = appeal.extra_info && appeal.extra_info !== '-' ? appeal.extra_info : null;
   if (extraInfo) {
     fields.push({
-      name: '📊 Additional Information (Level / Activity)',
+      name: '📊 Level / Activity',
       value: extraInfo.slice(0, 1024),
       inline: false,
     });
@@ -144,19 +144,9 @@ function buildStaffEmbed(appeal, voteCounts = null) {
     });
   }
 
-  // Member rating
-  if (appeal.member_rating) {
-    fields.push({
-      name: '⭐ Member Rating',
-      value: appeal.member_rating,
-      inline: false,
-    });
-  }
-
   // Community voting with a countdown while under review
   let votingValue =
-    `👍 **Support:** ${votes.support} (${supportPct}%)   •   👎 **Against:** ${votes.against} (${againstPct}%)\n` +
-    `*Total community votes:* ${total}`;
+    `👍 Support: **${votes.support}** (${supportPct}%)  •  👎 Against: **${votes.against}** (${againstPct}%)`;
 
   if (appeal.status === 'PENDING_REVIEW' && appeal.vote_ends_at) {
     const isVotingOpen = Date.now() < appeal.vote_ends_at;
@@ -175,8 +165,8 @@ function buildStaffEmbed(appeal, voteCounts = null) {
   // Show warning history, if any
   if (warningCount > 0) {
     fields.push({
-      name: '⚠️ Warning History',
-      value: `The applicant has received **${warningCount}** staff warning(s).`,
+      name: '⚠️ Staff Warnings',
+      value: `**${warningCount}** warning(s)`,
       inline: false,
     });
   }
@@ -192,8 +182,8 @@ function buildStaffEmbed(appeal, voteCounts = null) {
   // Show reviewer details after a final decision
   if (appeal.status === 'APPROVED' || appeal.status === 'REJECTED') {
     fields.push({
-      name: '🛡️ Official Staff Decision',
-      value: `<@${appeal.reviewed_by}> (ID: \`${appeal.reviewed_by}\`)\nTime: <t:${Math.floor(appeal.reviewed_at / 1000)}:F>`,
+      name: '🛡️ Staff Decision',
+      value: `<@${appeal.reviewed_by}> • <t:${Math.floor(appeal.reviewed_at / 1000)}:R>`,
       inline: false,
     });
   }
@@ -206,12 +196,6 @@ function buildStaffEmbed(appeal, voteCounts = null) {
       inline: false,
     });
   }
-
-  fields.push({
-    name: '📅 Application Date',
-    value: `<t:${Math.floor(appeal.created_at / 1000)}:F> (<t:${Math.floor(appeal.created_at / 1000)}:R>)`,
-    inline: false,
-  });
 
   const embed = new EmbedBuilder()
     .setTitle(`📋 Guild Join Appeal — ${appeal.appeal_code}`)
@@ -338,9 +322,8 @@ async function sendGearScoreScreenshotDm(client, userId, appeal) {
     const dmEmbed = new EmbedBuilder()
       .setTitle('📸 Gear Score Verification')
       .setDescription(
-        `Please send a **clear screenshot/image of your Gear Score** for appeal **${appeal.appeal_code}**.\n\n` +
-        'Staff will compare the image with the Gear Score value submitted in your application.\n\n' +
-        '**Reply directly to this DM** with a screenshot of your current Gear Score. Accepted formats: PNG, JPG, JPEG, WEBP, or GIF.'
+        `Reply to this DM with a **clear screenshot of your current Gear Score** for **${appeal.appeal_code}**.\n\n` +
+        'Supported: PNG, JPG, JPEG, WEBP, or GIF.'
       )
       .setColor(0xf1c40f)
       .setFooter({ text: `Appeal ID: ${appeal.appeal_code}` })
@@ -705,17 +688,12 @@ async function handleAppealModal(interaction) {
     const userConfirmEmbed = new EmbedBuilder()
       .setTitle('✅ Appeal Submitted Successfully')
       .setDescription(
-        `Thank you, **${interaction.user.username}**. Your application has been received!\n\n` +
-        `• **Appeal ID:** ${appeal.appeal_code}\n` +
-        `• **Roblox Username:** ${robloxUsername}\n` +
-        `• **Gear Score:** ${gearScore.toLocaleString('en-US')} GS\n\n` +
-        `• **The Forge Play Schedule:** ${robloxExperience}\n\n` +
-        'Your appeal has been sent to the community review and voting channel.\n\n' +
+        `Thank you, **${interaction.user.username}**.\n\n` +
+        `**${appeal.appeal_code}** • ${robloxUsername} • ${gearScore.toLocaleString('en-US')} GS\n\n` +
+        'Your appeal is under community review.\n\n' +
         (gearScoreDmSent
-          ? '📸 **Gear Score screenshot:** Reply directly to the bot DM with a clear screenshot of your current Gear Score for staff verification.\n\n'
-          : '📸 **Gear Score screenshot:** Please contact staff and send a clear image of your Gear Score because the bot could not send the DM request.\n\n') +
-        '⛔ **Important:** Staff will manually verify your actual Gear Score. If it does not match the value in your application and your appeal is denied for this mismatch, you will be permanently blocked from submitting future appeals.\n\n' +
-        '📌 You cannot submit another appeal while this one is under review.'
+          ? '📸 Reply to the bot DM with a clear Gear Score screenshot.'
+          : '📸 The DM could not be sent. Contact staff and provide a clear Gear Score screenshot.')
       )
       .setColor(0x2ecc71)
       .setFooter({ text: `Appeal ID: ${appeal.appeal_code}` })
