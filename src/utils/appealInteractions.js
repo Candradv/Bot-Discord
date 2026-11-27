@@ -462,11 +462,11 @@ async function handleAppealButton(interaction) {
         '**3. Guild Raid**\n' +
         'Members are expected to participate in Guild Raids.\n\n' +
         '**4. Boss Raid Schedule**\n' +
-        'Boss Raids take place four times a day (Western Indonesia Time / WIB):\n' +
-        '• 06.30 — Morning Raid\n' +
-        '• 12.30 — Afternoon Raid\n' +
-        '• 18.30 — Evening Raid\n' +
-        '• 19.30 — Night Raid\n\n' +
+        'Boss Raids take place four times a day (automatically converted to your local time):\n' +
+        '• <t:1767310200:t> — Morning Raid\n' +
+        '• <t:1767331800:t> — Afternoon Raid\n' +
+        '• <t:1767353400:t> — Evening Raid\n' +
+        '• <t:1767357000:t> — Night Raid\n\n' +
         '**5. Minimum GS Requirement**\n' +
         'Applicants must have at least 6,000 Gear Score (GS). After submitting, reply to the bot DM with a clear screenshot of your current Gear Score.\n\n' +
         '**6. Activity Requirement**\n' +
