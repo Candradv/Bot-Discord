@@ -105,13 +105,18 @@ module.exports = {
       .setFooter({ text: 'Guild Join Appeal System • Please review the rules before applying' })
       .setTimestamp();
 
-    // 6. Susun Tombol Pendaftaran
+    // 6. Susun Tombol Pendaftaran & Jadwal Raid
     const actionRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('appeal_btn_start')
         .setLabel('Make a Join Appeal')
         .setStyle(ButtonStyle.Primary)
         .setEmoji('📝'),
+      new ButtonBuilder()
+        .setCustomId('appeal_btn_raid_schedule')
+        .setLabel('Raid Schedule')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('⏰'),
     );
 
     try {

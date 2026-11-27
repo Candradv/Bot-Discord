@@ -433,6 +433,28 @@ function createSimplifiedAppealModal() {
 async function handleAppealButton(interaction) {
   const { customId } = interaction;
 
+  // 0. Tombol 'Raid Schedule' pada panel utama
+  if (customId === 'appeal_btn_raid_schedule') {
+    const scheduleEmbed = new EmbedBuilder()
+      .setTitle('⏰ GUILD RAID SCHEDULE')
+      .setDescription(
+        'Boss Raids take place **four times every day**.\n' +
+        'The times below are **automatically converted to your local device time**:\n\n' +
+        '• 🌅 **Morning Raid:** <t:1767310200:t>\n' +
+        '• ☀️ **Afternoon Raid:** <t:1767331800:t>\n' +
+        '• 🌆 **Evening Raid:** <t:1767353400:t>\n' +
+        '• 🌙 **Night Raid:** <t:1767357000:t>\n\n' +
+        '📌 *Note: The raid schedule remains the same every day regardless of your timezone.*'
+      )
+      .setColor(0x3498db)
+      .setFooter({ text: 'Guild Raid Times • Auto Local Time' });
+
+    return interaction.reply({
+      embeds: [scheduleEmbed],
+      ephemeral: true,
+    });
+  }
+
   // 1. Tombol 'Make a Join Appeal' pada panel utama
   if (customId === 'appeal_btn_start') {
     const permanentBlock = db.getPermanentAppealBlockByUser(interaction.user.id);
