@@ -1,5 +1,6 @@
 const { Events, PermissionFlagsBits } = require('discord.js');
 const { config } = require('../config');
+const { startRaidScheduler } = require('../utils/raidScheduler');
 const logger = require('../utils/logger');
 
 /**
@@ -51,5 +52,11 @@ module.exports = {
     await validateChannel(client, config.joinAppealChannelId, 'JOIN_APPEAL_CHANNEL_ID');
     await validateChannel(client, config.guildAppealChannelId, 'GUILD_APPEAL_CHANNEL_ID');
     await validateChannel(client, config.appealLogChannelId, 'APPEAL_LOG_CHANNEL_ID');
+    if (config.raidReminderChannelId) {
+      await validateChannel(client, config.raidReminderChannelId, 'RAID_REMINDER_CHANNEL_ID');
+    }
+
+    // Aktifkan Background Scheduler Notifikasi Raid Otomatis
+    startRaidScheduler(client);
   },
 };

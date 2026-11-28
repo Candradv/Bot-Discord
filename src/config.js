@@ -10,6 +10,9 @@ const config = {
   joinAppealChannelId: process.env.JOIN_APPEAL_CHANNEL_ID || process.env.APPEAL_CHANNEL_ID,
   guildAppealChannelId: process.env.GUILD_APPEAL_CHANNEL_ID || process.env.STAFF_CHANNEL_ID,
   appealLogChannelId: process.env.APPEAL_LOG_CHANNEL_ID,
+  // Raid Reminder
+  raidReminderChannelId: process.env.RAID_REMINDER_CHANNEL_ID,
+  raidReminderRoleId: process.env.RAID_REMINDER_ROLE_ID,
   // Backwards compatibility aliases
   appealChannelId: process.env.JOIN_APPEAL_CHANNEL_ID || process.env.APPEAL_CHANNEL_ID,
   staffChannelId: process.env.GUILD_APPEAL_CHANNEL_ID || process.env.STAFF_CHANNEL_ID,
