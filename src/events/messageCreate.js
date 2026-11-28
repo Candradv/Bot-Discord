@@ -1,5 +1,4 @@
 const { Events } = require('discord.js');
-const { EmbedBuilder } = require('discord.js');
 const db = require('../database/db');
 const logger = require('../utils/logger');
 const { config } = require('../config');
@@ -50,32 +49,10 @@ module.exports = {
           });
         }
 
-        const proofEmbed = new EmbedBuilder()
-          .setTitle(`📸 Gear Score Proof — ${updatedAppeal.appeal_code}`)
-          .setDescription(
-            `Applicant: <@${updatedAppeal.user_id}>\n` +
-            `Submitted Gear Score: **${updatedAppeal.gear_score?.toLocaleString('en-US') || 'Not provided'} GS**`
-          )
-          .setImage(imageAttachment.url)
-          .setColor(0xf1c40f)
-          .setFooter({ text: `Appeal ID: ${updatedAppeal.appeal_code}` })
-          .setTimestamp();
-
-        await channel.send({
-          content:
-            `⚔️ Gear Score screenshot received for <@${updatedAppeal.user_id}>.\n` +
-            `Appeal: **${updatedAppeal.appeal_code}**`,
-          embeds: [proofEmbed],
-          files: [{
-            attachment: imageAttachment.url,
-            name: `gear-score-${updatedAppeal.appeal_code.replace(/[^a-z0-9]/gi, '-')}.png`,
-          }],
-        });
-
         await message.reply(
-          `✅ Your Gear Score screenshot was received for **${updatedAppeal.appeal_code}** and sent to staff for verification.`
+          `✅ Your Gear Score screenshot was received and attached directly to your appeal (**${updatedAppeal.appeal_code}**).`
         );
-        logger.info(`Gear Score screenshot received for appeal ${updatedAppeal.appeal_code} from user ${message.author.id}`);
+        logger.info(`Gear Score screenshot updated in appeal ${updatedAppeal.appeal_code} from user ${message.author.id}`);
       } catch (error) {
         logger.warn(`Could not attach Gear Score screenshot to appeal ${updatedAppeal.appeal_code}: ${error.message}`);
       }
