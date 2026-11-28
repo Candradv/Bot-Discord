@@ -47,21 +47,21 @@ function buildRaidNotificationEmbed({ raid, targetUnix, minutesBefore, isTest = 
   let statusDesc = '';
 
   if (minutesBefore === 0) {
-    title = `⚔️ [DIMULAI SEKARANG] ${raid.icon} ${raid.name.toUpperCase()} TELAH DIBUKA!`;
-    color = 0x2ecc71; // Hijau
-    statusDesc = 'Gerbang Boss Raid telah dibuka! Segera kumpul bersama anggota guild in-game sekarang!';
+    title = `⚔️ [NOW STARTING] ${raid.icon} ${raid.name.toUpperCase()} IS NOW OPEN!`;
+    color = 0x2ecc71; // Green
+    statusDesc = 'The Boss Raid gates have opened! Rally with your guild members in-game right now!';
   } else if (minutesBefore === 1) {
-    title = `🚨 [1 MENIT LAGI] ${raid.icon} ${raid.name.toUpperCase()} SEGERA DIMULAI!`;
-    color = 0xe74c3c; // Merah (Urgent)
-    statusDesc = 'Raid akan dimulai dalam 1 menit! Pastikan posisi kamu sudah siap di arena!';
+    title = `🚨 [1 MINUTE LEFT] ${raid.icon} ${raid.name.toUpperCase()} STARTS SOON!`;
+    color = 0xe74c3c; // Red (Urgent)
+    statusDesc = 'The raid begins in 1 minute! Make sure you are in position at the raid arena!';
   } else if (minutesBefore === 5) {
-    title = `⚠️ [5 MENIT LAGI] ${raid.icon} ${raid.name.toUpperCase()} SEGERA DIMULAI!`;
-    color = 0xe67e22; // Oranye Tua
-    statusDesc = 'Raid dimulai 5 menit lagi. Segera login ke game dan siapkan gear terbaik kamu!';
+    title = `⚠️ [5 MINUTES LEFT] ${raid.icon} ${raid.name.toUpperCase()} STARTS SOON!`;
+    color = 0xe67e22; // Dark Orange
+    statusDesc = 'The raid starts in 5 minutes. Log into the game now and equip your best gear!';
   } else {
-    title = `⏰ [10 MENIT LAGI] ${raid.icon} ${raid.name.toUpperCase()} AKAN DIMULAI!`;
-    color = 0xf39c12; // Emas / Kuning
-    statusDesc = 'Pengingat Boss Raid! Persiapkan karakter, item buff, dan koordinasi tim kamu.';
+    title = `⏰ [10 MINUTES LEFT] ${raid.icon} ${raid.name.toUpperCase()} IS STARTING SOON!`;
+    color = 0xf39c12; // Gold / Yellow
+    statusDesc = 'Guild Boss Raid reminder! Prepare your character, buff items, and team coordination.';
   }
 
   const embed = new EmbedBuilder()
@@ -70,20 +70,20 @@ function buildRaidNotificationEmbed({ raid, targetUnix, minutesBefore, isTest = 
     .setDescription(
       `### ${raid.icon} **${raid.name}**\n\n` +
       `${statusDesc}\n\n` +
-      `📌 **Waktu Mulai:** <t:${targetUnix}:t> (<t:${targetUnix}:R>)\n` +
-      `🌐 *Waktu di atas otomatis menyesuaikan dengan jam perangkat masing-masing.*`
+      `📌 **Start Time:** <t:${targetUnix}:t> (<t:${targetUnix}:R>)\n` +
+      `🌐 *The time above automatically converts to your local device timezone.*`
     )
     .addFields(
       {
-        name: '🛡️ Persiapan Guild Raid',
-        value: '• Pastikan Gear Score memenuhi syarat\n• Masuk ke server game tepat waktu\n• Ikuti instruksi Guild Officer / Raid Leader',
+        name: '🛡️ Guild Raid Checklist',
+        value: '• Use weaker weapons so everyone can get rewards\n• Join the game server on time\n• Follow instructions from the Guild Officer / Raid Leader',
         inline: false,
       }
     )
     .setFooter({
       text: isTest
-        ? 'Guild Raid Notification • Mode Uji Coba'
-        : 'Guild Raid Notification System • Otomatis sesuai jam lokal',
+        ? 'Guild Raid Notification • Test Mode'
+        : 'Guild Raid Notification System • Auto Local Time',
     })
     .setTimestamp();
 

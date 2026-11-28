@@ -7,23 +7,23 @@ const logger = require('../utils/logger');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('notiftest')
-    .setDescription('Uji coba kirim pesan notifikasi reminder Boss Raid')
+    .setDescription('Send a test Boss Raid reminder notification (Staff/Owner only)')
     .addIntegerOption((option) =>
       option
-        .setName('menit')
-        .setDescription('Pilih waktu reminder pengingat')
+        .setName('minutes')
+        .setDescription('Select the reminder time window')
         .setRequired(false)
         .addChoices(
-          { name: '10 Menit Sebelum', value: 10 },
-          { name: '5 Menit Sebelum', value: 5 },
-          { name: '1 Menit Sebelum', value: 1 },
-          { name: '0 Menit (Raid Dimulai)', value: 0 },
+          { name: '10 Minutes Before', value: 10 },
+          { name: '5 Minutes Before', value: 5 },
+          { name: '1 Minute Before', value: 1 },
+          { name: '0 Minutes (Raid Started)', value: 0 },
         )
     )
     .addStringOption((option) =>
       option
         .setName('raid')
-        .setDescription('Pilih jadwal raid yang ingin diuji')
+        .setDescription('Select which raid schedule to test')
         .setRequired(false)
         .addChoices(
           { name: '🌅 Morning Raid (06:30)', value: 'morning' },
@@ -36,26 +36,26 @@ module.exports = {
   async execute(interaction, client) {
     if (!interaction.inGuild()) {
       return interaction.reply({
-        content: 'Perintah ini hanya dapat dijalankan di dalam server Discord.',
+        content: 'This command can only be used inside a Discord server.',
         ephemeral: true,
       });
     }
 
-    // Hanya Staff/Owner yang bisa menjalankan uji coba
+    // Only Staff/Owner can run the test command
     if (!isStaff(interaction.member, interaction.guild)) {
       return interaction.reply({
-        content: '⛔ Anda tidak memiliki izin untuk menjalankan perintah uji coba ini.',
+        content: '⛔ You do not have permission to run this test command.',
         ephemeral: true,
       });
     }
 
     await interaction.deferReply({ ephemeral: true });
 
-    const minutesBefore = interaction.options.getInteger('menit') ?? 10;
+    const minutesBefore = interaction.options.getInteger('minutes') ?? 10;
     const raidId = interaction.options.getString('raid') || 'morning';
     const selectedRaid = RAIDS.find((r) => r.id === raidId) || RAIDS[0];
 
-    // Buat target waktu simulasi
+    // Create target simulation timestamp
     const targetUnix = Math.floor(Date.now() / 1000) + minutesBefore * 60;
 
     const success = await sendRaidNotification(client, {
@@ -67,11 +67,11 @@ module.exports = {
 
     if (success) {
       return interaction.editReply({
-        content: `✅ **Notifikasi uji coba berhasil dikirim!**\n\n• **Raid:** ${selectedRaid.icon} ${selectedRaid.name}\n• **Kategori:** ${minutesBefore === 0 ? 'Raid Dimulai Sekarang' : `${minutesBefore} Menit Sebelum`}\n• **Channel Tujuan:** <#${config.raidReminderChannelId}>\n• **Role Tag:** <@&${config.raidReminderRoleId}>`,
+        content: `✅ **Test notification successfully sent!**\n\n• **Raid:** ${selectedRaid.icon} ${selectedRaid.name}\n• **Category:** ${minutesBefore === 0 ? 'Raid Starting Now' : `${minutesBefore} Minutes Before`}\n• **Target Channel:** <#${config.raidReminderChannelId}>\n• **Role Tag:** <@&${config.raidReminderRoleId}>`,
       });
     } else {
       return interaction.editReply({
-        content: `❌ Gagal mengirim notifikasi uji coba. Pastikan channel <#${config.raidReminderChannelId}> dapat diakses oleh bot.`,
+        content: `❌ Failed to send test notification. Please verify that the bot has permission to send messages in <#${config.raidReminderChannelId}>.`,
       });
     }
   },
