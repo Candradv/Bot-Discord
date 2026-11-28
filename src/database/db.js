@@ -218,6 +218,19 @@ const stmtGetByMessageId = db.prepare(`
   SELECT * FROM appeals WHERE message_id = ?
 `);
 
+const stmtSearchAppealsByRoblox = db.prepare(`
+  SELECT * FROM appeals 
+  WHERE LOWER(roblox_username) = LOWER(?) OR LOWER(ign) = LOWER(?)
+  ORDER BY created_at DESC
+`);
+
+const stmtSearchAppealsByRobloxFuzzy = db.prepare(`
+  SELECT * FROM appeals 
+  WHERE LOWER(roblox_username) LIKE LOWER(?) OR LOWER(ign) LIKE LOWER(?)
+  ORDER BY created_at DESC
+  LIMIT 10
+`);
+
 // Prepared Statements for Community Votes
 const stmtGetUserVote = db.prepare(`
   SELECT vote_type FROM votes 
@@ -405,6 +418,23 @@ function getAppealByMessageId(messageId) {
 }
 
 /**
+ * Mencari riwayat appeal berdasarkan username Roblox (exact match, atau fuzzy match)
+ */
+function searchAppealsByRoblox(username) {
+  const cleanUsername = (username || '').trim();
+  if (!cleanUsername) return [];
+
+  // 1. Coba exact match dulu (case-insensitive)
+  const exactMatches = stmtSearchAppealsByRoblox.all(cleanUsername, cleanUsername);
+  if (exactMatches && exactMatches.length > 0) {
+    return exactMatches;
+  }
+
+  // 2. Jika tidak ada exact match, coba fuzzy search (LIKE %...%)
+  return stmtSearchAppealsByRobloxFuzzy.all(`%${cleanUsername}%`, `%${cleanUsername}%`) || [];
+}
+
+/**
  * Menyimpan atau memperbarui vote dari seorang member (UPSERT atomik).
  */
 function castVote(appealId, userId, voteType) {
@@ -502,6 +532,7 @@ module.exports = {
   getAppealById,
   getAppealByCode,
   getAppealByMessageId,
+  searchAppealsByRoblox,
   castVote,
   getVoteCounts,
   getUserVote,
