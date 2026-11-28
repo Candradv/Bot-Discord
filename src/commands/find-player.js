@@ -5,12 +5,26 @@ const { isStaff } = require('../utils/appealInteractions');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('find-player')
-    .setDescription('Search Discord account by Roblox username from appeal history (Officer/Owner only)')
+    .setDescription('Search player appeal history by Roblox username or Discord account (Officer/Owner only)')
     .addStringOption((option) =>
       option
-        .setName('username')
-        .setDescription('Enter the Roblox username to search')
-        .setRequired(true)
+        .setName('roblox_username')
+        .setDescription('Search by Roblox username')
+        .setRequired(false)
+        .setMinLength(2)
+        .setMaxLength(50)
+    )
+    .addUserOption((option) =>
+      option
+        .setName('discord_user')
+        .setDescription('Search by selecting a Discord user/member')
+        .setRequired(false)
+    )
+    .addStringOption((option) =>
+      option
+        .setName('discord_name')
+        .setDescription('Search by typing Discord username, tag, or ID')
+        .setRequired(false)
         .setMinLength(2)
         .setMaxLength(50)
     ),
@@ -31,18 +45,45 @@ module.exports = {
       });
     }
 
+    const robloxUsername = interaction.options.getString('roblox_username')?.trim();
+    const discordUser = interaction.options.getUser('discord_user');
+    const discordName = interaction.options.getString('discord_name')?.trim();
+
+    // Validasi: Pengguna harus mengisi setidaknya salah satu opsi
+    if (!robloxUsername && !discordUser && !discordName) {
+      return interaction.reply({
+        content:
+          '⚠️ Please provide at least one search option:\n' +
+          '• `roblox_username` — Search by Roblox username\n' +
+          '• `discord_user` — Select a Discord user\n' +
+          '• `discord_name` — Type a Discord username, tag, or ID',
+        ephemeral: true,
+      });
+    }
+
     await interaction.deferReply({ ephemeral: true });
 
-    const searchUsername = interaction.options.getString('username').trim();
-    const results = db.searchAppealsByRoblox(searchUsername);
+    let results = [];
+    let searchLabel = '';
+
+    if (discordUser) {
+      results = db.searchAppealsByDiscord(discordUser.id);
+      searchLabel = `Discord User: <@${discordUser.id}> (${discordUser.tag})`;
+    } else if (discordName) {
+      results = db.searchAppealsByDiscord(discordName);
+      searchLabel = `Discord Name/ID: "${discordName}"`;
+    } else if (robloxUsername) {
+      results = db.searchAppealsByRoblox(robloxUsername);
+      searchLabel = `Roblox Username: "${robloxUsername}"`;
+    }
 
     if (!results || results.length === 0) {
       const notFoundEmbed = new EmbedBuilder()
         .setTitle('🔍 Player Lookup Results')
         .setColor(0xe74c3c)
         .setDescription(
-          `❌ No appeal history found for Roblox username: **${searchUsername}**.\n\n` +
-          `*Note: The user may have never submitted an appeal, or uses a different username.*`
+          `❌ No appeal history found for **${searchLabel}**.\n\n` +
+          `*Note: The user may have never submitted an appeal, or the name does not match.*`
         )
         .setFooter({ text: 'Guild Appeal Database • Officer Lookup' })
         .setTimestamp();
@@ -53,7 +94,7 @@ module.exports = {
     // Jika ditemukan tepat 1 riwayat appeal
     if (results.length === 1) {
       const appeal = results[0];
-      const robloxName = appeal.roblox_username || appeal.ign || searchUsername;
+      const robloxName = appeal.roblox_username || appeal.ign || 'Unknown';
 
       let statusBadge = '⏳ `Pending Review`';
       let statusColor = 0xf1c40f;
@@ -70,7 +111,7 @@ module.exports = {
         .setTitle(`🔍 Player Found: ${robloxName}`)
         .setColor(statusColor)
         .setDescription(
-          `Found **1** appeal record matching Roblox username **${robloxName}**:`
+          `Found **1** record matching **${searchLabel}**:`
         )
         .addFields(
           {
@@ -140,7 +181,7 @@ module.exports = {
       .setTitle(`🔍 Multiple Records Found (${results.length})`)
       .setColor(0x3498db)
       .setDescription(
-        `Found **${results.length}** appeal record(s) matching **"${searchUsername}"**:\n`
+        `Found **${results.length}** appeal record(s) matching **${searchLabel}**:\n`
       )
       .setFooter({ text: 'Guild Appeal Database • Officer Lookup' })
       .setTimestamp();

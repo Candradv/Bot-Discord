@@ -231,6 +231,19 @@ const stmtSearchAppealsByRobloxFuzzy = db.prepare(`
   LIMIT 10
 `);
 
+const stmtSearchAppealsByDiscordId = db.prepare(`
+  SELECT * FROM appeals 
+  WHERE user_id = ?
+  ORDER BY created_at DESC
+`);
+
+const stmtSearchAppealsByDiscordTag = db.prepare(`
+  SELECT * FROM appeals 
+  WHERE LOWER(user_tag) LIKE LOWER(?) OR user_id = ?
+  ORDER BY created_at DESC
+  LIMIT 10
+`);
+
 // Prepared Statements for Community Votes
 const stmtGetUserVote = db.prepare(`
   SELECT vote_type FROM votes 
@@ -435,6 +448,23 @@ function searchAppealsByRoblox(username) {
 }
 
 /**
+ * Mencari riwayat appeal berdasarkan akun/username/ID Discord
+ */
+function searchAppealsByDiscord(queryOrUserId) {
+  const clean = (queryOrUserId || '').trim();
+  if (!clean) return [];
+
+  // Jika input berupa snowflake ID (angka 16-22 digit)
+  if (/^\d{16,22}$/.test(clean)) {
+    const byId = stmtSearchAppealsByDiscordId.all(clean);
+    if (byId && byId.length > 0) return byId;
+  }
+
+  // Cari berdasarkan user_tag atau substring tag
+  return stmtSearchAppealsByDiscordTag.all(`%${clean}%`, clean) || [];
+}
+
+/**
  * Menyimpan atau memperbarui vote dari seorang member (UPSERT atomik).
  */
 function castVote(appealId, userId, voteType) {
@@ -533,6 +563,7 @@ module.exports = {
   getAppealByCode,
   getAppealByMessageId,
   searchAppealsByRoblox,
+  searchAppealsByDiscord,
   castVote,
   getVoteCounts,
   getUserVote,
